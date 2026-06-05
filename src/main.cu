@@ -20,7 +20,7 @@ constexpr auto ERROR_EXIT_CODE{ 99 };
 constexpr auto NX{ 1200u }; ///< Pixels on the X-Axis (width)
 constexpr auto NY{ 600u };  ///< Pixels on the Y-Axis (height)
 constexpr auto NUM_PIXELS{ NX * NY };
-constexpr auto FRAMEBUFFER_SIZE{ NUM_PIXELS * sizeof(Vec3) }; ///< Size in bytes
+constexpr auto FRAMEBUFFER_SIZE{ NUM_PIXELS * sizeof(Vec3) }; ///< Framebuffer size in bytes
 
 constexpr auto TX{ 8 }; ///< Threads on the X-Axis
 constexpr auto TY{ 8 }; ///< Threads on the Y-Axis
@@ -90,13 +90,39 @@ __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned in
 
 __device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
 
-/// \brief Generate the background of the rendered image.
+/// \brief Check if the ray is hitting a sphere.
+///
+/// \param center The center of the sphere
+/// \param radius The radius of the sphere
+/// \param r The ray that is being tested
+///
+/// \returns \p true if \p r is hitting the sphere, \p false otherwise
+///
+/// \note Only callable from a CUDA Kernel or other device functions.
+__device__ bool hitSphere(const Vec3& center, float radius, const Ray& r)
+{
+    const Vec3 oc{ r.origin - center };
+
+    const float a{ dot(r.direction, r.direction) };
+    const float b{ 2.f * dot(oc, r.direction) };
+    const float c{ dot(oc, oc) - (radius * radius) };
+    const float discriminant{ (b * b) - (4 * a * c) };
+
+    return discriminant > 0;
+}
+
+/// \brief Generate the rendered image.
 ///
 /// \param r The ray that points to a position
 ///
 /// \returns Vec3 Color at that position
+///
+/// \note Only callable from a CUDA Kernel or other device functions.
 __device__ Vec3 color(const Ray& r)
 {
+    if(hitSphere({ 0.f, 0.f, 1.f }, 0.5f, r))
+        return { 1.f, 0.f, 0.f };
+
     const Vec3 dir{ unitVector(r.direction) };
     const float t{ 0.5f * (dir.y() + 1.f) };
 
@@ -112,6 +138,8 @@ __device__ Vec3 color(const Ray& r)
 /// \param horizontal Size of the "screen" on the X-Axis
 /// \param vertical Size of the "screen" on the Y-Axis
 /// \param origin The center of the "screen"
+///
+/// \note CUDA Kernel
 __global__ void render(
     Vec3* pFramebuffer, int width, int height, Vec3 lowerLeftCorner, Vec3 horizontal, Vec3 vertical, Vec3 origin
 )
