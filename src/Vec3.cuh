@@ -1,13 +1,16 @@
 #ifndef CRT_VEC_3_HPP
 #define CRT_VEC_3_HPP
 
-#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 #include <fmt/base.h>
 
 #include <cmath>
 #include <iostream>
-#include <sstream>
 
+/// \brief CUDA compatible mathematical three-dimensional vector class.
+///
+/// \author Felix Hommel
+/// \date 6/5/2026
 class Vec3
 {
 public:
@@ -43,7 +46,7 @@ public:
         return (m_data[0] * m_data[0]) + (m_data[1] * m_data[1]) + (m_data[2] * m_data[2]);
     }
     __host__ __device__ inline float length() const { return std::sqrt(lengthSquared()); }
-    __host__ __device__ inline void makeUnitVector();
+    __host__ __device__ inline void normalize();
 
     friend inline std::istream& operator>>(std::istream& in, Vec3& v);
     friend inline std::ostream& operator<<(std::ostream& out, const Vec3& v);
@@ -64,9 +67,9 @@ inline std::ostream& operator<<(std::ostream& out, const Vec3& v)
     return out;
 }
 
-__host__ __device__ inline void Vec3::makeUnitVector()
+__host__ __device__ inline void Vec3::normalize()
 {
-    const float value{ 1.f / std::sqrt(lengthSquared()) };
+    const float value{ 1.f / length() };
 
     m_data[0] *= value;
     m_data[1] *= value;
