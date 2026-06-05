@@ -1,5 +1,5 @@
-#ifndef CRT_VEC_3_HPP
-#define CRT_VEC_3_HPP
+#ifndef CRT_SRC_VEC_3_HPP
+#define CRT_SRC_VEC_3_HPP
 
 #include <cuda_runtime_api.h>
 #include <fmt/base.h>
@@ -31,6 +31,7 @@ public:
 
     __host__ __device__ inline const Vec3& operator+() const { return *this; }
     __host__ __device__ inline Vec3 operator-() const { return { -m_data[0], -m_data[1], -m_data[2] }; };
+
     __host__ __device__ inline float operator[](unsigned int i) const { return m_data[i]; } // NOLINT
     __host__ __device__ inline float& operator[](unsigned int i) { return m_data[i]; }      // NOLINT
 
@@ -184,4 +185,4 @@ __host__ __device__ inline Vec3 unitVector(const Vec3& v)
     return v / v.length();
 }
 
-#endif // !CRT_VEC_3_HPP
+#endif // !CRT_SRC_VEC_3_HPP
