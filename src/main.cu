@@ -1,4 +1,5 @@
-#include "Vec3.cuh"
+#include "src/Ray.cuh"
+#include "src/Vec3.cuh"
 
 #include <cuda_runtime.h>
 #include <fmt/base.h>
@@ -23,6 +24,11 @@ constexpr auto FRAMEBUFFER_SIZE{ NUM_PIXELS * sizeof(Vec3) }; ///< Size in bytes
 
 constexpr auto TX{ 8 }; ///< Threads on the X-Axis
 constexpr auto TY{ 8 }; ///< Threads on the Y-Axis
+
+constexpr auto LOWER_LEFT_CORNER{ Vec3(-2.0, -1.0, -1.0) };
+constexpr auto HORIZONTAL{ Vec3(2.0 + 2.0, 0.0, 0.0) };
+constexpr auto VERTICAL{ Vec3(0.0, 2.0, 0.0) };
+constexpr auto ORIGIN{ Vec3(0.0, 0.0, 0.0) };
 
 constexpr auto COLOR_MAX{ 255.99 };
 
@@ -82,14 +88,33 @@ __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned in
 
 // NOLINTBEGIN: CUDA kernels follow C-style syntax, which the clang-tidy settings do not like
 
-__device__ constexpr auto DEV_FB_BLUE{ 0.2f }; ///< Value for the framebuffers blue component
+__device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
+
+/// \brief Generate the background of the rendered image.
+///
+/// \param r The ray that points to a position
+///
+/// \returns Vec3 Color at that position
+__device__ Vec3 color(const Ray& r)
+{
+    const Vec3 dir{ unitVector(r.direction) };
+    const float t{ 0.5f * (dir.y() + 1.f) };
+
+    return (1.f - t) * Vec3(1.f) + t * DEV_COLOR_FACTOR;
+}
 
 /// \brief Kernel that produces the framebuffer.
 ///
 /// \param pFramebuffer The framebuffer array
 /// \param width The width of the framebuffer
 /// \param height The height of the framebuffer
-__global__ void render(Vec3* pFramebuffer, int width, int height)
+/// \param lowerLeftCorner Specify what the bottom left corner of the "screen" is
+/// \param horizontal Size of the "screen" on the X-Axis
+/// \param vertical Size of the "screen" on the Y-Axis
+/// \param origin The center of the "screen"
+__global__ void render(
+    Vec3* pFramebuffer, int width, int height, Vec3 lowerLeftCorner, Vec3 horizontal, Vec3 vertical, Vec3 origin
+)
 {
     const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
     const auto j{ threadIdx.y + (blockIdx.y * blockDim.y) };
@@ -99,11 +124,11 @@ __global__ void render(Vec3* pFramebuffer, int width, int height)
 
     const auto pixelIndex{ calculatePixelIndex(i, j, width) };
 
-    pFramebuffer[pixelIndex] = Vec3{
-        static_cast<float>(i) / static_cast<float>(width),
-        static_cast<float>(j) / static_cast<float>(height),
-        DEV_FB_BLUE,
-    };
+    const auto u{ static_cast<float>(i) / static_cast<float>(width) };
+    const auto v{ static_cast<float>(j) / static_cast<float>(height) };
+    const Ray r{ origin, lowerLeftCorner + (u * horizontal) + (v * vertical) };
+
+    pFramebuffer[pixelIndex] = color(r);
 }
 
 // NOLINTEND
@@ -111,17 +136,17 @@ __global__ void render(Vec3* pFramebuffer, int width, int height)
 int main()
 {
     Vec3* framebuffer{ nullptr };
-    CHECK_CUDA_ERROR(cudaMallocManaged(&framebuffer, FRAMEBUFFER_SIZE));
+    CHECK_CUDA_ERROR(cudaMallocManaged(&framebuffer, ::FRAMEBUFFER_SIZE));
     CHECK_CUDA_ERROR(cudaGetLastError());
 
-    constexpr dim3 blocks((NX / TX) + 1, (NY / TY) + 1);
-    constexpr dim3 threads(TX, TY);
+    constexpr dim3 blocks((::NX / ::TX) + 1, (::NY / ::TY) + 1);
+    constexpr dim3 threads(::TX, ::TY);
 
-    render<<<blocks, threads>>>(framebuffer, NX, NY);
+    render<<<blocks, threads>>>(framebuffer, ::NX, ::NY, ::LOWER_LEFT_CORNER, ::HORIZONTAL, ::VERTICAL, ::ORIGIN);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
-    ::exportImage({ framebuffer, FRAMEBUFFER_SIZE });
+    ::exportImage({ framebuffer, ::FRAMEBUFFER_SIZE });
 
     CHECK_CUDA_ERROR(cudaFree(framebuffer));
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
