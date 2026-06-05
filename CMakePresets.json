@@ -1,0 +1,112 @@
+{
+    "version": 9,
+    "$schema": "https://cmake.org/cmake/help/latest/_downloads/3e2d73bff478d88a7de0de736ba5e361/schema.json",
+    "configurePresets": [
+        {
+            "name": "base",
+            "description": "Configure basic template that can be shared across all configurations",
+            "hidden": true,
+            "generator": "Ninja",
+            "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "debug-base",
+            "description": "Configure a project for debug mode",
+            "inherits": "base",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release-base",
+            "description": "Configure a project for release mode",
+            "inherits": "base",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "gcc-debug",
+            "description": "Configure the project for gcc compiler debug mode",
+            "displayName": "Debug (on gcc compilers)",
+            "inherits": "debug-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "gcc-release",
+            "description": "Configure the project for gcc compiler release mode",
+            "displayName": "Release (on gcc compilers)",
+            "inherits": "release-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug-build-base",
+            "description": "Build the project in debug mode",
+            "hidden": true,
+            "configuration": "Debug"
+        },
+        {
+            "name": "release-build-base",
+            "description": "Build the project in release mode",
+            "hidden": true,
+            "configuration": "Release"
+        },
+        {
+            "name": "gcc-debug",
+            "displayName": "Build Debug (on gcc compilers)",
+            "inherits": "debug-build-base",
+            "configurePreset": "gcc-debug"
+        },
+        {
+            "name": "gcc-release",
+            "displayName": "Build Release (on gcc compilers)",
+            "inherits": "release-build-base",
+            "configurePreset": "gcc-release"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "gcc-debug",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "gcc-debug"
+                },
+                {
+                    "type": "build",
+                    "name": "gcc-debug"
+                }
+            ]
+        },
+        {
+            "name": "gcc-release",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "gcc-release"
+                },
+                {
+                    "type": "build",
+                    "name": "gcc-release"
+                }
+            ]
+        }
+    ]
+}
