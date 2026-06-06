@@ -15,7 +15,12 @@ set(CMAKE_CUDA_ARCHITECTURES 75)
 add_executable(${PROJECT_NAME} ./src/main.cu)
 target_sources(
     ${PROJECT_NAME}
-    PRIVATE FILE_SET HEADERS FILES ./src/Vec3.cuh ./src/Ray.cuh
+    PRIVATE
+        FILE_SET HEADERS
+            FILES
+                ./src/Vec3.cuh
+                ./src/Ray.cuh
+                ./src/IHitable.cuh
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20 cuda_std_20)
