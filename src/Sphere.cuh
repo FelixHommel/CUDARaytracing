@@ -39,24 +39,24 @@ __device__ bool Sphere::hit(const Ray& r, float min, float max, HitRecord& rec) 
     const float c{ dot(oc, oc) - (radius * radius) };
     const float discriminant{ (b * b) - (a * c) };
 
-    if(discriminant > 0)
+    if(discriminant > 0.f)
     {
         const float sqrtDiscriminant{ std::sqrt(discriminant) };
 
-        float tmp{ (-b - sqrtDiscriminant) / a };
-        if(tmp > max || tmp < min)
+        float temp{ (-b - sqrtDiscriminant) / a };
+        if(temp < max && temp > min)
         {
-            rec.t = tmp;
+            rec.t = temp;
             rec.p = r.pointAtParameter(rec.t);
             rec.normal = (rec.p - center) / radius;
 
             return true;
         }
 
-        tmp = (-b + sqrtDiscriminant) / a;
-        if(tmp < max && tmp > min)
+        temp = (-b + sqrtDiscriminant) / a;
+        if(temp < max && temp > min)
         {
-            rec.t = tmp;
+            rec.t = temp;
             rec.p = r.pointAtParameter(rec.t);
             rec.normal = (rec.p - center) / radius;
 
