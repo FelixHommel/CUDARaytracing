@@ -1,9 +1,13 @@
+#include "src/HitableList.cuh"
+#include "src/IHitable.cuh"
 #include "src/Ray.cuh"
+#include "src/Sphere.cuh"
 #include "src/Vec3.cuh"
 
 #include <cuda_runtime.h>
 #include <fmt/base.h>
 
+#include <cfloat>
 #include <cstdlib>
 #include <ctime>
 #include <span>
@@ -90,38 +94,19 @@ __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned in
 
 __device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
 
-/// \brief Check if the ray is hitting a sphere.
-///
-/// \param center The center of the sphere
-/// \param radius The radius of the sphere
-/// \param r The ray that is being tested
-///
-/// \returns \p true if \p r is hitting the sphere, \p false otherwise
-///
-/// \note Only callable from a CUDA Kernel or other device functions.
-__device__ bool hitSphere(const Vec3& center, float radius, const Ray& r)
-{
-    const Vec3 oc{ r.origin - center };
-
-    const float a{ dot(r.direction, r.direction) };
-    const float b{ 2.f * dot(oc, r.direction) };
-    const float c{ dot(oc, oc) - (radius * radius) };
-    const float discriminant{ (b * b) - (4 * a * c) };
-
-    return discriminant > 0;
-}
-
 /// \brief Generate the rendered image.
 ///
 /// \param r The ray that points to a position
+/// \param world List of all objects in the world
 ///
 /// \returns Vec3 Color at that position
 ///
 /// \note Only callable from a CUDA Kernel or other device functions.
-__device__ Vec3 color(const Ray& r)
+__device__ Vec3 color(const Ray& r, IHitable** world)
 {
-    if(hitSphere({ 0.f, 0.f, 1.f }, 0.5f, r))
-        return { 1.f, 0.f, 0.f };
+    HitRecord rec;
+    if((*world)->hit(r, 0.f, FLT_MAX, rec))
+        return 0.5f * Vec3(rec.normal.x() + 1.f, rec.normal.y() + 1.f, rec.normal.z() + 1.f);
 
     const Vec3 dir{ unitVector(r.direction) };
     const float t{ 0.5f * (dir.y() + 1.f) };
@@ -138,10 +123,18 @@ __device__ Vec3 color(const Ray& r)
 /// \param horizontal Size of the "screen" on the X-Axis
 /// \param vertical Size of the "screen" on the Y-Axis
 /// \param origin The center of the "screen"
+/// \param world List of all objects in the world
 ///
 /// \note CUDA Kernel
 __global__ void render(
-    Vec3* pFramebuffer, int width, int height, Vec3 lowerLeftCorner, Vec3 horizontal, Vec3 vertical, Vec3 origin
+    Vec3* pFramebuffer,
+    int width,
+    int height,
+    Vec3 lowerLeftCorner,
+    Vec3 horizontal,
+    Vec3 vertical,
+    Vec3 origin,
+    IHitable** world
 )
 {
     const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
@@ -156,7 +149,36 @@ __global__ void render(
     const auto v{ static_cast<float>(j) / static_cast<float>(height) };
     const Ray r{ origin, lowerLeftCorner + (u * horizontal) + (v * vertical) };
 
-    pFramebuffer[pixelIndex] = color(r);
+    pFramebuffer[pixelIndex] = color(r, world);
+}
+
+/// \brief Kernel to create the objects that are in the world on the GPU.
+///
+/// \param list The objects that are in the world
+/// \param world The container that contains the objects in \p list
+///
+/// \note CUDA Kernel
+__global__ void createWorld(IHitable** list, IHitable** world)
+{
+    if(threadIdx.x == 0 && blockIdx.x == 0)
+    {
+        *list = new Sphere(Vec3{ 0.f, 0.f, -1.f }, 0.5f);
+        *(list + 1) = new Sphere(Vec3{ 0.f, -100.5f, -1.f }, 100.f);
+        *world = new HitableList(list, 2);
+    }
+}
+
+/// \brief Kernel to destroy the objects that are in the world on the GPU.
+///
+/// \param list The objects that are in the world
+/// \param world The container that contains the objects in \p list
+///
+/// \note CUDA Kernel
+__global__ void freeWorld(IHitable** list, IHitable** world)
+{
+    delete *list;
+    delete *(list + 1);
+    delete *world;
 }
 
 // NOLINTEND
@@ -167,17 +189,34 @@ int main()
     CHECK_CUDA_ERROR(cudaMallocManaged(&framebuffer, ::FRAMEBUFFER_SIZE));
     CHECK_CUDA_ERROR(cudaGetLastError());
 
+    IHitable** d_list{ nullptr };
+    CHECK_CUDA_ERROR(cudaMalloc(&d_list, 2 * sizeof(IHitable*)));
+    IHitable** d_world{ nullptr };
+    CHECK_CUDA_ERROR(cudaMalloc(&d_world, sizeof(IHitable*)));
+
+    createWorld<<<1, 1>>>(d_list, d_world);
+    CHECK_CUDA_ERROR(cudaGetLastError());
+    CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+
     constexpr dim3 blocks((::NX / ::TX) + 1, (::NY / ::TY) + 1);
     constexpr dim3 threads(::TX, ::TY);
 
-    render<<<blocks, threads>>>(framebuffer, ::NX, ::NY, ::LOWER_LEFT_CORNER, ::HORIZONTAL, ::VERTICAL, ::ORIGIN);
+    render<<<blocks, threads>>>(
+        framebuffer, ::NX, ::NY, ::LOWER_LEFT_CORNER, ::HORIZONTAL, ::VERTICAL, ::ORIGIN, d_world
+    );
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
     ::exportImage({ framebuffer, ::FRAMEBUFFER_SIZE });
 
-    CHECK_CUDA_ERROR(cudaFree(framebuffer));
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+    freeWorld<<<1, 1>>>(d_list, d_world);
+    CHECK_CUDA_ERROR(cudaGetLastError());
+    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_list)));
+    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_world)));
+    CHECK_CUDA_ERROR(cudaFree(framebuffer));
+
+    cudaDeviceReset();
 
     return 0;
 }
