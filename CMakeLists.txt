@@ -21,6 +21,7 @@ target_sources(
                 ./src/Vec3.cuh
                 ./src/Ray.cuh
                 ./src/IHitable.cuh
+                ./src/HitableList.cuh
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20 cuda_std_20)
