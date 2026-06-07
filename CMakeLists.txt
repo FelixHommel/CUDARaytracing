@@ -24,6 +24,7 @@ target_sources(
                 ./src/HitableList.cuh
                 ./src/Sphere.cuh
                 ./src/Camera.cuh
+                ./src/Material.cuh
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20 cuda_std_20)
