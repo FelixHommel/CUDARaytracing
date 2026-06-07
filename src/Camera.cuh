@@ -19,9 +19,10 @@ constexpr auto DEF_VERTICAL{ Vec3(0.0, 2.0, 0.0) };
 ///
 /// \author Felix Hommel
 /// \date 6/6/2026
-struct Camera
+struct Camera // NOLINT
 {
-    __device__ Camera() {} // NOLINT
+    __device__ Camera() {}  // NOLINT
+    __device__ ~Camera() {} // NOLINT
 
     /// \brief Get a Ray that is cast towards a specific point (u, v)
     ///
