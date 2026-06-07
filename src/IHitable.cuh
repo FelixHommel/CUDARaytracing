@@ -1,6 +1,8 @@
 #ifndef CRT_SRC_I_HITABLE_CUH
 #define CRT_SRC_I_HITABLE_CUH
 
+class IMaterial;
+
 #include "src/Ray.cuh"
 #include "src/Vec3.cuh"
 
@@ -13,6 +15,7 @@ struct HitRecord
     float t{ 0.f };
     Vec3 p;
     Vec3 normal;
+    IMaterial* pMaterial{ nullptr };
 };
 
 /// \brief Represent any object that can intersect with a \ref Ray.

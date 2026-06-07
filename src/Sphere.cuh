@@ -2,6 +2,7 @@
 #define CRT_SRC_SPHERE_CUH
 
 #include "src/IHitable.cuh"
+#include "src/Material.cuh"
 #include "src/Ray.cuh"
 #include "src/Vec3.cuh"
 
@@ -14,7 +15,7 @@
 struct Sphere : public IHitable // NOLINT
 {
     __device__ Sphere() {} // NOLINT
-    __device__ Sphere(Vec3 center, float radius) : center(center), radius(radius) {}
+    __device__ Sphere(Vec3 center, float radius, IMaterial* mat) : center(center), radius(radius), pMaterial(mat) {}
     __device__ ~Sphere() override {} // NOLINT
 
     /// \brief Check if a \ref Ray intersects with the \ref Sphere.
@@ -29,6 +30,7 @@ struct Sphere : public IHitable // NOLINT
 
     Vec3 center;
     float radius;
+    IMaterial* pMaterial;
 };
 
 __device__ bool Sphere::hit(const Ray& r, float min, float max, HitRecord& rec) const
@@ -49,6 +51,7 @@ __device__ bool Sphere::hit(const Ray& r, float min, float max, HitRecord& rec) 
             rec.t = temp;
             rec.p = r.pointAtParameter(rec.t);
             rec.normal = (rec.p - center) / radius;
+            rec.pMaterial = pMaterial;
 
             return true;
         }
@@ -59,6 +62,7 @@ __device__ bool Sphere::hit(const Ray& r, float min, float max, HitRecord& rec) 
             rec.t = temp;
             rec.p = r.pointAtParameter(rec.t);
             rec.normal = (rec.p - center) / radius;
+            rec.pMaterial = pMaterial;
 
             return true;
         }
