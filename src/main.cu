@@ -91,26 +91,62 @@ __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned in
 
 // NOLINTBEGIN: CUDA kernels follow C-style syntax, which the clang-tidy settings do not like
 
+#define RAND_VEC3                                                                                      \
+    Vec3                                                                                               \
+    {                                                                                                  \
+        curand_uniform(localRandState), curand_uniform(localRandState), curand_uniform(localRandState) \
+    }
+
+__device__ Vec3 randomInUnitSphere(curandState* localRandState)
+{
+    Vec3 p;
+
+    do
+    {
+        p = 2.f * RAND_VEC3 - Vec3{ 1.f };
+    }
+    while(p.lengthSquared() >= 1.f);
+
+    return p;
+}
+
+__device__ constexpr auto MAX_COLOR_ITERATIONS{ 50u };
 __device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
 
-/// \brief Generate the rendered image.
+/// \brief Calculate the color at a specific \ref Ray position.
 ///
 /// \param r The ray that points to a position
 /// \param world List of all objects in the world
+/// \param localRandState The thread local \ref curandState
 ///
 /// \returns Vec3 Color at that position
 ///
 /// \note Only callable from a CUDA Kernel or other device functions.
-__device__ Vec3 color(const Ray& r, IHitable** world)
+__device__ Vec3 color(const Ray& r, IHitable** world, curandState* localRandState)
 {
-    HitRecord rec;
-    if((*world)->hit(r, 0.f, FLT_MAX, rec))
-        return 0.5f * Vec3(rec.normal.x() + 1.f, rec.normal.y() + 1.f, rec.normal.z() + 1.f);
+    Ray curRay{ r };
+    float curAttenuation{ 1.f };
 
-    const Vec3 dir{ unitVector(r.direction) };
-    const float t{ 0.5f * (dir.y() + 1.f) };
+    for(int i{ 0 }; i < MAX_COLOR_ITERATIONS; ++i)
+    {
+        HitRecord rec;
+        if((*world)->hit(curRay, 0.001f, FLT_MAX, rec))
+        {
+            const Vec3 target{ rec.p + rec.normal + randomInUnitSphere(localRandState) };
+            curAttenuation *= 0.5f;
+            curRay = { rec.p, target - rec.p };
+        }
+        else
+        {
+            const Vec3 dir{ unitVector(r.direction) };
+            const float t{ 0.5f * (dir.y() + 1.f) };
+            const Vec3 c{ (1.f - t) * Vec3(1.f) + t * DEV_COLOR_FACTOR };
 
-    return (1.f - t) * Vec3(1.f) + t * DEV_COLOR_FACTOR;
+            return curAttenuation * c;
+        }
+    }
+
+    return Vec3{ 0.f };
 }
 
 /// \brief Kernel that produces the framebuffer.
@@ -149,10 +185,18 @@ __global__ void render(
         const auto u{ (static_cast<float>(i) + curand_uniform(&localRandState)) / static_cast<float>(width) };
         const auto v{ (static_cast<float>(j) + curand_uniform(&localRandState)) / static_cast<float>(height) };
 
-        c += color((*camera)->getRay(u, v), world);
+        c += color((*camera)->getRay(u, v), world, &localRandState);
     }
 
-    pFramebuffer[pixelIndex] = c / static_cast<float>(sampleCount);
+    randState[pixelIndex] = localRandState;
+
+    // NOTE: Simplified color correction
+    c /= static_cast<float>(sampleCount);
+    c[0] = std::sqrt(c[0]);
+    c[1] = std::sqrt(c[1]);
+    c[2] = std::sqrt(c[2]);
+
+    pFramebuffer[pixelIndex] = c;
 }
 
 /// \brief Kernel to prepare the rendering state on the GPU.
@@ -246,8 +290,10 @@ int main()
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
     freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
-    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_list)));
+    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_camera)));
     CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_world)));
+    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_list)));
+    CHECK_CUDA_ERROR(cudaFree(d_randState));
     CHECK_CUDA_ERROR(cudaFree(framebuffer));
 
     cudaDeviceReset();
