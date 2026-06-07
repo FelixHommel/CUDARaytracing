@@ -6,6 +6,7 @@
 #include "src/Vec3.cuh"
 
 #include <cuda_runtime.h>
+#include <curand_kernel.h>
 #include <fmt/base.h>
 
 #include <cfloat>
@@ -29,6 +30,8 @@ constexpr auto FRAMEBUFFER_SIZE{ NUM_PIXELS * sizeof(Vec3) }; ///< Framebuffer s
 
 constexpr auto TX{ 8 }; ///< Threads on the X-Axis
 constexpr auto TY{ 8 }; ///< Threads on the Y-Axis
+
+constexpr auto SAMPLE_COUNT{ 100u };
 
 constexpr auto COLOR_MAX{ 255.99 };
 
@@ -115,11 +118,51 @@ __device__ Vec3 color(const Ray& r, IHitable** world)
 /// \param pFramebuffer The framebuffer array
 /// \param width The width of the framebuffer
 /// \param height The height of the framebuffer
+/// \param sampleCount The amount of samples taken per pixel
 /// \param camera The \ref Camera that observes the scene
 /// \param world List of all objects in the world
+/// \param randState The \ref curandState to access the thread local random state
 ///
 /// \note CUDA Kernel
-__global__ void render(Vec3* pFramebuffer, int width, int height, Camera** camera, IHitable** world)
+__global__ void render(
+    Vec3* pFramebuffer,
+    int width,
+    int height,
+    unsigned int sampleCount,
+    Camera** camera,
+    IHitable** world,
+    curandState* randState
+)
+{
+    const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
+    const auto j{ threadIdx.y + (blockIdx.y * blockDim.y) };
+
+    if(i >= width || j >= height)
+        return;
+
+    const auto pixelIndex{ calculatePixelIndex(i, j, width) };
+    auto localRandState{ randState[pixelIndex] };
+
+    auto c{ Vec3{ 0.f } };
+    for(int s{ 0 }; s < sampleCount; ++s)
+    {
+        const auto u{ (static_cast<float>(i) + curand_uniform(&localRandState)) / static_cast<float>(width) };
+        const auto v{ (static_cast<float>(j) + curand_uniform(&localRandState)) / static_cast<float>(height) };
+
+        c += color((*camera)->getRay(u, v), world);
+    }
+
+    pFramebuffer[pixelIndex] = c / static_cast<float>(sampleCount);
+}
+
+/// \brief Kernel to prepare the rendering state on the GPU.
+///
+/// \param width The width of the framebuffer
+/// \param height The height of the framebuffer
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \note CUDA Kernel
+__global__ void renderInit(int width, int height, curandState* randState)
 {
     const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
     const auto j{ threadIdx.y + (blockIdx.y * blockDim.y) };
@@ -129,11 +172,7 @@ __global__ void render(Vec3* pFramebuffer, int width, int height, Camera** camer
 
     const auto pixelIndex{ calculatePixelIndex(i, j, width) };
 
-    const auto u{ static_cast<float>(i) / static_cast<float>(width) };
-    const auto v{ static_cast<float>(j) / static_cast<float>(height) };
-    const auto r{ (*camera)->getRay(u, v) };
-
-    pFramebuffer[pixelIndex] = color(r, world);
+    curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
 }
 
 /// \brief Kernel to create the objects that are in the world on the GPU.
@@ -177,6 +216,9 @@ int main()
     CHECK_CUDA_ERROR(cudaMallocManaged(&framebuffer, ::FRAMEBUFFER_SIZE));
     CHECK_CUDA_ERROR(cudaGetLastError());
 
+    curandState* d_randState{ nullptr };
+    CHECK_CUDA_ERROR(cudaMalloc(&d_randState, NUM_PIXELS * sizeof(curandState)));
+
     IHitable** d_list{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_list, 2 * sizeof(IHitable*)));
     IHitable** d_world{ nullptr };
@@ -191,7 +233,11 @@ int main()
     constexpr dim3 blocks((::NX / ::TX) + 1, (::NY / ::TY) + 1);
     constexpr dim3 threads(::TX, ::TY);
 
-    render<<<blocks, threads>>>(framebuffer, ::NX, ::NY, d_camera, d_world);
+    renderInit<<<blocks, threads>>>(::NX, ::NY, d_randState);
+    CHECK_CUDA_ERROR(cudaGetLastError());
+    CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+
+    render<<<blocks, threads>>>(framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
