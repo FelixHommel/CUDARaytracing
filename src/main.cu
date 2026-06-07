@@ -91,25 +91,6 @@ __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned in
 
 // NOLINTBEGIN: CUDA kernels follow C-style syntax, which the clang-tidy settings do not like
 
-#define RAND_VEC3                                                                                      \
-    Vec3                                                                                               \
-    {                                                                                                  \
-        curand_uniform(localRandState), curand_uniform(localRandState), curand_uniform(localRandState) \
-    }
-
-__device__ Vec3 randomInUnitSphere(curandState* localRandState)
-{
-    Vec3 p;
-
-    do
-    {
-        p = 2.f * RAND_VEC3 - Vec3{ 1.f };
-    }
-    while(p.lengthSquared() >= 1.f);
-
-    return p;
-}
-
 __device__ constexpr auto MAX_COLOR_ITERATIONS{ 50u };
 __device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
 
@@ -125,16 +106,23 @@ __device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
 __device__ Vec3 color(const Ray& r, IHitable** world, curandState* localRandState)
 {
     Ray curRay{ r };
-    float curAttenuation{ 1.f };
+    Vec3 curAttenuation{ 1.f };
 
     for(int i{ 0 }; i < MAX_COLOR_ITERATIONS; ++i)
     {
         HitRecord rec;
         if((*world)->hit(curRay, 0.001f, FLT_MAX, rec))
         {
-            const Vec3 target{ rec.p + rec.normal + randomInUnitSphere(localRandState) };
-            curAttenuation *= 0.5f;
-            curRay = { rec.p, target - rec.p };
+            Ray scattered;
+            Vec3 attenuation;
+
+            if(rec.pMaterial->scatter(curRay, rec, attenuation, scattered, localRandState))
+            {
+                curAttenuation *= attenuation;
+                curRay = scattered;
+            }
+            else
+                return Vec3{ 0.f };
         }
         else
         {
@@ -219,6 +207,9 @@ __global__ void renderInit(int width, int height, curandState* randState)
     curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
 }
 
+constexpr auto OBJECTS_IN_SCENE{ 4u };
+__device__ constexpr auto DEV_OBJECTS_IN_SCENE{ OBJECTS_IN_SCENE };
+
 /// \brief Kernel to create the objects that are in the world on the GPU.
 ///
 /// \param list The objects that are in the world
@@ -230,9 +221,23 @@ __global__ void createWorld(IHitable** list, IHitable** world, Camera** camera)
 {
     if(threadIdx.x == 0 && blockIdx.x == 0)
     {
-        *list = new Sphere(Vec3{ 0.f, 0.f, -1.f }, 0.5f);
-        *(list + 1) = new Sphere(Vec3{ 0.f, -100.5f, -1.f }, 100.f);
-        *world = new HitableList(list, 2);
+        list[0] = new Sphere{
+            Vec3{ 0.f, 0.f, -1.f },
+            0.5f, new Lambertian{ Vec3{ 0.8f, 0.3f, 0.3f } }
+        };
+        list[1] = new Sphere{
+            Vec3{ 0.f, -100.5f, -1.f },
+            100.f, new Lambertian{ Vec3{ 0.8f, 0.8f, 0.f } }
+        };
+        list[2] = new Sphere{
+            Vec3{ 1.f, 0.f, -1.f },
+            0.5f, new Metal{ Vec3{ 0.8f, 0.6f, 0.2f }, 1.f }
+        };
+        list[3] = new Sphere{
+            Vec3{ -1.f, 0.f, -1.f },
+            0.5f, new Metal{ Vec3{ 0.8f, 0.8f, 0.8f }, 0.3f }
+        };
+        *world = new HitableList(list, DEV_OBJECTS_IN_SCENE);
         *camera = new Camera();
     }
 }
@@ -246,8 +251,11 @@ __global__ void createWorld(IHitable** list, IHitable** world, Camera** camera)
 /// \note CUDA Kernel
 __global__ void freeWorld(IHitable** list, IHitable** world, Camera** camera)
 {
-    delete *list;
-    delete *(list + 1);
+    for(int i{ 0 }; i < DEV_OBJECTS_IN_SCENE; ++i)
+    {
+        delete static_cast<Sphere*>(list[i])->pMaterial;
+        delete list[i];
+    }
     delete *world;
     delete *camera;
 }
@@ -264,12 +272,11 @@ int main()
     CHECK_CUDA_ERROR(cudaMalloc(&d_randState, NUM_PIXELS * sizeof(curandState)));
 
     IHitable** d_list{ nullptr };
-    CHECK_CUDA_ERROR(cudaMalloc(&d_list, 2 * sizeof(IHitable*)));
+    CHECK_CUDA_ERROR(cudaMalloc(&d_list, OBJECTS_IN_SCENE * sizeof(IHitable*)));
     IHitable** d_world{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_world, sizeof(IHitable*)));
     Camera** d_camera{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_camera, sizeof(Camera*)));
-
     createWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
