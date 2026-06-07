@@ -1,3 +1,4 @@
+#include "src/Camera.cuh"
 #include "src/HitableList.cuh"
 #include "src/IHitable.cuh"
 #include "src/Ray.cuh"
@@ -28,11 +29,6 @@ constexpr auto FRAMEBUFFER_SIZE{ NUM_PIXELS * sizeof(Vec3) }; ///< Framebuffer s
 
 constexpr auto TX{ 8 }; ///< Threads on the X-Axis
 constexpr auto TY{ 8 }; ///< Threads on the Y-Axis
-
-constexpr auto LOWER_LEFT_CORNER{ Vec3(-2.0, -1.0, -1.0) };
-constexpr auto HORIZONTAL{ Vec3(2.0 + 2.0, 0.0, 0.0) };
-constexpr auto VERTICAL{ Vec3(0.0, 2.0, 0.0) };
-constexpr auto ORIGIN{ Vec3(0.0, 0.0, 0.0) };
 
 constexpr auto COLOR_MAX{ 255.99 };
 
@@ -119,23 +115,11 @@ __device__ Vec3 color(const Ray& r, IHitable** world)
 /// \param pFramebuffer The framebuffer array
 /// \param width The width of the framebuffer
 /// \param height The height of the framebuffer
-/// \param lowerLeftCorner Specify what the bottom left corner of the "screen" is
-/// \param horizontal Size of the "screen" on the X-Axis
-/// \param vertical Size of the "screen" on the Y-Axis
-/// \param origin The center of the "screen"
+/// \param camera The \ref Camera that observes the scene
 /// \param world List of all objects in the world
 ///
 /// \note CUDA Kernel
-__global__ void render(
-    Vec3* pFramebuffer,
-    int width,
-    int height,
-    Vec3 lowerLeftCorner,
-    Vec3 horizontal,
-    Vec3 vertical,
-    Vec3 origin,
-    IHitable** world
-)
+__global__ void render(Vec3* pFramebuffer, int width, int height, Camera** camera, IHitable** world)
 {
     const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
     const auto j{ threadIdx.y + (blockIdx.y * blockDim.y) };
@@ -147,7 +131,7 @@ __global__ void render(
 
     const auto u{ static_cast<float>(i) / static_cast<float>(width) };
     const auto v{ static_cast<float>(j) / static_cast<float>(height) };
-    const Ray r{ origin, lowerLeftCorner + (u * horizontal) + (v * vertical) };
+    const auto r{ (*camera)->getRay(u, v) };
 
     pFramebuffer[pixelIndex] = color(r, world);
 }
@@ -156,15 +140,17 @@ __global__ void render(
 ///
 /// \param list The objects that are in the world
 /// \param world The container that contains the objects in \p list
+/// \param camera The \ref Camera that observes the scene
 ///
 /// \note CUDA Kernel
-__global__ void createWorld(IHitable** list, IHitable** world)
+__global__ void createWorld(IHitable** list, IHitable** world, Camera** camera)
 {
     if(threadIdx.x == 0 && blockIdx.x == 0)
     {
         *list = new Sphere(Vec3{ 0.f, 0.f, -1.f }, 0.5f);
         *(list + 1) = new Sphere(Vec3{ 0.f, -100.5f, -1.f }, 100.f);
         *world = new HitableList(list, 2);
+        *camera = new Camera();
     }
 }
 
@@ -172,13 +158,15 @@ __global__ void createWorld(IHitable** list, IHitable** world)
 ///
 /// \param list The objects that are in the world
 /// \param world The container that contains the objects in \p list
+/// \param camera The \ref Camera that observes the scene
 ///
 /// \note CUDA Kernel
-__global__ void freeWorld(IHitable** list, IHitable** world)
+__global__ void freeWorld(IHitable** list, IHitable** world, Camera** camera)
 {
     delete *list;
     delete *(list + 1);
     delete *world;
+    delete *camera;
 }
 
 // NOLINTEND
@@ -193,24 +181,24 @@ int main()
     CHECK_CUDA_ERROR(cudaMalloc(&d_list, 2 * sizeof(IHitable*)));
     IHitable** d_world{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_world, sizeof(IHitable*)));
+    Camera** d_camera{ nullptr };
+    CHECK_CUDA_ERROR(cudaMalloc(&d_camera, sizeof(Camera*)));
 
-    createWorld<<<1, 1>>>(d_list, d_world);
+    createWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
     constexpr dim3 blocks((::NX / ::TX) + 1, (::NY / ::TY) + 1);
     constexpr dim3 threads(::TX, ::TY);
 
-    render<<<blocks, threads>>>(
-        framebuffer, ::NX, ::NY, ::LOWER_LEFT_CORNER, ::HORIZONTAL, ::VERTICAL, ::ORIGIN, d_world
-    );
+    render<<<blocks, threads>>>(framebuffer, ::NX, ::NY, d_camera, d_world);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
     ::exportImage({ framebuffer, ::FRAMEBUFFER_SIZE });
 
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
-    freeWorld<<<1, 1>>>(d_list, d_world);
+    freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_list)));
     CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_world)));
