@@ -207,7 +207,7 @@ __global__ void renderInit(int width, int height, curandState* randState)
     curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
 }
 
-constexpr auto OBJECTS_IN_SCENE{ 4u };
+constexpr auto OBJECTS_IN_SCENE{ 5u };
 __device__ constexpr auto DEV_OBJECTS_IN_SCENE{ OBJECTS_IN_SCENE };
 
 /// \brief Kernel to create the objects that are in the world on the GPU.
@@ -231,11 +231,15 @@ __global__ void createWorld(IHitable** list, IHitable** world, Camera** camera)
         };
         list[2] = new Sphere{
             Vec3{ 1.f, 0.f, -1.f },
-            0.5f, new Metal{ Vec3{ 0.8f, 0.6f, 0.2f }, 1.f }
+            0.5f, new Metal{ Vec3{ 0.8f, 0.6f, 0.2f }, 0.f }
         };
         list[3] = new Sphere{
             Vec3{ -1.f, 0.f, -1.f },
-            0.5f, new Metal{ Vec3{ 0.8f, 0.8f, 0.8f }, 0.3f }
+            0.5f, new Dielectric{ 1.5f }
+        };
+        list[4] = new Sphere{
+            Vec3{ -1.f, 0.f, -1.f },
+            -0.45f, new Dielectric{ 1.5f }
         };
         *world = new HitableList(list, DEV_OBJECTS_IN_SCENE);
         *camera = new Camera();
