@@ -217,7 +217,7 @@ __device__ constexpr auto DEV_OBJECTS_IN_SCENE{ OBJECTS_IN_SCENE };
 /// \param camera The \ref Camera that observes the scene
 ///
 /// \note CUDA Kernel
-__global__ void createWorld(IHitable** list, IHitable** world, Camera** camera)
+__global__ void createWorld(IHitable** list, IHitable** world, Camera** camera, int width, int height)
 {
     if(threadIdx.x == 0 && blockIdx.x == 0)
     {
@@ -242,7 +242,14 @@ __global__ void createWorld(IHitable** list, IHitable** world, Camera** camera)
             -0.45f, new Dielectric{ 1.5f }
         };
         *world = new HitableList(list, DEV_OBJECTS_IN_SCENE);
-        *camera = new Camera();
+
+        *camera = new Camera(
+            Vec3(-2.f, 2.f, 1.f),
+            Vec3(0.f, 0.f, -1.f),
+            Vec3(0.f, 1.f, 0.f),
+            20.f,
+            (static_cast<float>(width) / static_cast<float>(height))
+        );
     }
 }
 
@@ -281,7 +288,7 @@ int main()
     CHECK_CUDA_ERROR(cudaMalloc(&d_world, sizeof(IHitable*)));
     Camera** d_camera{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_camera, sizeof(Camera*)));
-    createWorld<<<1, 1>>>(d_list, d_world, d_camera);
+    createWorld<<<1, 1>>>(d_list, d_world, d_camera, ::NX, ::NY);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
