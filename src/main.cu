@@ -223,7 +223,7 @@ __global__ void createWorld(IHitable** list, IHitable** world, Camera** camera)
     {
         list[0] = new Sphere{
             Vec3{ 0.f, 0.f, -1.f },
-            0.5f, new Lambertian{ Vec3{ 0.8f, 0.3f, 0.3f } }
+            0.5f, new Lambertian{ Vec3{ 0.1f, 0.2f, 0.5f } }
         };
         list[1] = new Sphere{
             Vec3{ 0.f, -100.5f, -1.f },
