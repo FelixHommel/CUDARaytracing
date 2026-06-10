@@ -14,7 +14,7 @@
 class Vec3
 {
 public:
-    __host__ __device__ constexpr explicit Vec3() {} // NOLINT
+    __host__ __device__ constexpr explicit Vec3() : m_data() {} // NOLINT
     __host__ __device__ constexpr explicit Vec3(float value)
     {
         m_data[0] = value;
