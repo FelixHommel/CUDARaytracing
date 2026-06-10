@@ -333,7 +333,7 @@ int main()
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
-    ::exportImage({ framebuffer, ::FRAMEBUFFER_SIZE });
+    ::exportImage({ framebuffer, ::NUM_PIXELS });
 
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
     freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
