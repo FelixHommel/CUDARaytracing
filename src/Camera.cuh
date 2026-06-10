@@ -7,23 +7,12 @@
 #include <cmath>
 #include <cuda_runtime_api.h>
 
-namespace
-{
-
-constexpr auto DEF_ORIGIN{ Vec3(0.0, 0.0, 0.0) };
-constexpr auto DEF_LOWER_LEFT_CORNER{ Vec3(-2.0, -1.0, -1.0) };
-constexpr auto DEF_HORIZONTAL{ Vec3(2.0 + 2.0, 0.0, 0.0) };
-constexpr auto DEF_VERTICAL{ Vec3(0.0, 2.0, 0.0) };
-
-} // namespace
-
 /// \brief The Camera is where the \ref Ray are cast from.
 ///
 /// \author Felix Hommel
 /// \date 6/6/2026
 struct Camera // NOLINT
 {
-    __device__ Camera() {} // NOLINT
     /// \brief Construct a new \ref Camrea with a custom position
     ///
     /// \param lookFrom Where the \ref Camera is looking from
@@ -58,10 +47,10 @@ struct Camera // NOLINT
         return { origin, lowerLeftCorner + (u * horizontal) + (v * vertical) - origin };
     }
 
-    Vec3 origin{ ::DEF_ORIGIN };
-    Vec3 lowerLeftCorner{ ::DEF_LOWER_LEFT_CORNER };
-    Vec3 horizontal{ ::DEF_HORIZONTAL };
-    Vec3 vertical{ ::DEF_VERTICAL };
+    Vec3 origin;
+    Vec3 lowerLeftCorner;
+    Vec3 horizontal;
+    Vec3 vertical;
 };
 
 #endif // !CRT_SRC_CAMERA_CUH
