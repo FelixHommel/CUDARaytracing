@@ -316,6 +316,8 @@ int main()
     CHECK_CUDA_ERROR(cudaMalloc(&d_randState, NUM_PIXELS * sizeof(curandState)));
 
     renderInit<<<BLOCKS, THREADS>>>(::NX, ::NY, d_randState);
+    CHECK_CUDA_ERROR(cudaGetLastError());
+    CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
     IHitable** d_list{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_list, OBJECTS_IN_SCENE * sizeof(IHitable*)));
@@ -324,8 +326,6 @@ int main()
     Camera** d_camera{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_camera, sizeof(Camera*)));
     createWorld<<<1, 1>>>(d_list, d_world, d_camera, ::NX, ::NY, d_randState);
-    CHECK_CUDA_ERROR(cudaGetLastError());
-    CHECK_CUDA_ERROR(cudaDeviceSynchronize());
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
