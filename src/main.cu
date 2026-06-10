@@ -12,6 +12,7 @@
 #include <cfloat>
 #include <cstdlib>
 #include <ctime>
+#include <memory>
 #include <span>
 
 __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned int y, unsigned int width);
@@ -308,8 +309,8 @@ __global__ void freeWorld(IHitable** list, IHitable** world, Camera** camera)
 
 int main()
 {
-    Vec3* framebuffer{ nullptr };
-    CHECK_CUDA_ERROR(cudaMallocManaged(&framebuffer, ::FRAMEBUFFER_SIZE));
+    Vec3* d_framebuffer{ nullptr };
+    CHECK_CUDA_ERROR(cudaMalloc(&d_framebuffer, ::FRAMEBUFFER_SIZE));
     CHECK_CUDA_ERROR(cudaGetLastError());
 
     curandState* d_randState{ nullptr };
@@ -329,20 +330,21 @@ int main()
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
-    render<<<BLOCKS, THREADS>>>(framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
+    render<<<BLOCKS, THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
-    ::exportImage({ framebuffer, ::NUM_PIXELS });
+    auto framebuffer{ std::make_unique<Vec3>(::NUM_PIXELS) };
+    CHECK_CUDA_ERROR(cudaMemcpy(framebuffer.get(), d_framebuffer, ::FRAMEBUFFER_SIZE, cudaMemcpyDeviceToHost));
+    ::exportImage({ framebuffer.get(), ::NUM_PIXELS });
 
-    CHECK_CUDA_ERROR(cudaDeviceSynchronize());
     freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_camera)));
     CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_world)));
     CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_list)));
     CHECK_CUDA_ERROR(cudaFree(d_randState));
-    CHECK_CUDA_ERROR(cudaFree(framebuffer));
+    CHECK_CUDA_ERROR(cudaFree(d_framebuffer));
 
     cudaDeviceReset();
 
