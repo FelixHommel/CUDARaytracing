@@ -12,8 +12,8 @@
 #include <cfloat>
 #include <cstdlib>
 #include <ctime>
-#include <memory>
 #include <span>
+#include <vector>
 
 __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned int y, unsigned int width);
 
@@ -334,9 +334,9 @@ int main()
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
-    auto framebuffer{ std::make_unique<Vec3>(::NUM_PIXELS) };
-    CHECK_CUDA_ERROR(cudaMemcpy(framebuffer.get(), d_framebuffer, ::FRAMEBUFFER_SIZE, cudaMemcpyDeviceToHost));
-    ::exportImage({ framebuffer.get(), ::NUM_PIXELS });
+    std::vector<Vec3> framebuffer(::NUM_PIXELS);
+    CHECK_CUDA_ERROR(cudaMemcpy(framebuffer.data(), d_framebuffer, ::FRAMEBUFFER_SIZE, cudaMemcpyDeviceToHost));
+    ::exportImage({ framebuffer.data(), ::NUM_PIXELS });
 
     freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
