@@ -224,7 +224,6 @@ __global__ void renderInit(int width, int height, curandStatePhilox4_32_10_t* ra
     curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
 }
 
-
 /// \brief Generate two random numbers and multiply them.
 ///
 /// \param randState The \ref curandState to access the thread local random state
@@ -268,11 +267,17 @@ __global__ void createWorld(
             const Vec3 center{ a + device::randNum(&localRandState), 0.2f, b + device::randNum(&localRandState) };
 
             if(chooseMat < 0.8f)
-                list[i++] = new Sphere{ center,
-                                        0.2f,
-                                        new Lambertian{ Vec3{ randNumProduct(&localRandState),
-                                                              randNumProduct(&localRandState),
-                                                              randNumProduct(&localRandState) } } };
+            {
+                list[i++] = new Sphere{
+                    center,
+                    0.2f,
+                    new Lambertian{ Vec3{
+                        randNumProduct(&localRandState),
+                        randNumProduct(&localRandState),
+                        randNumProduct(&localRandState),
+                    } },
+                };
+            }
             else if(chooseMat < 0.95f)
             {
                 const auto metalColorFn{ [&localRandState] {
