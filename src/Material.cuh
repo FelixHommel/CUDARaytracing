@@ -5,23 +5,29 @@
 #include "src/Ray.cuh"
 #include "src/Vec3.cuh"
 
-#include <cmath>
 #include <cuda_runtime_api.h>
 #include <curand_kernel.h>
 
-#define RAND_VEC3                                                                                      \
-    Vec3                                                                                               \
-    {                                                                                                  \
-        curand_uniform(localRandState), curand_uniform(localRandState), curand_uniform(localRandState) \
-    }
+#include <cmath>
+
+/// \brief Generate a \ref Vec3 with random values
+///
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \returns \ref Vec3 with random x, y, and z components
+__device__ inline Vec3 randVec3(curandState* randState)
+{
+    return { curand_uniform(randState), curand_uniform(randState), curand_uniform(randState) };
+}
 
 __device__ Vec3 randomInUnitSphere(curandState* localRandState)
+__device__ Vec3 randomInUnitSphere(curandState* randState)
 {
     Vec3 p;
 
     do // NOLINT
     {
-        p = (2.f * RAND_VEC3) - Vec3{ 1.f };
+        p = (2.f * randVec3(randState)) - Vec3{ 1.f };
     }
     while(p.lengthSquared() >= 1.f);
 
