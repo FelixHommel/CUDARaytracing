@@ -34,7 +34,7 @@ struct Camera // NOLINT
         horizontal = 2 * halfWidth * u;
         vertical = 2 * halfHeight * v;
     }
-    __device__ ~Camera() {} // NOLINT
+    __device__ ~Camera(){}; // NOLINT(modernize-use-equals-default): nvcc warning: non-virtual __device__ = default methods
 
     /// \brief Get a Ray that is cast towards a specific point (u, v)
     ///

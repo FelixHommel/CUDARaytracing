@@ -12,7 +12,7 @@
 struct Ray
 {
 public:
-    __device__ Ray() {} // NOLINT
+    __device__ Ray() {} // NOLINT(modernize-use-equals-default): nvcc warning: non-virtual __device__ = default methods
     __device__ Ray(const Vec3& origin, const Vec3& direction) : origin(origin), direction(direction) {}
 
     __device__ Vec3 pointAtParameter(float t) const { return origin + (t * direction); }
