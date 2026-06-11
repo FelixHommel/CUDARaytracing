@@ -53,6 +53,16 @@
                 "CMAKE_C_COMPILER": "gcc",
                 "CMAKE_CXX_COMPILER": "g++"
             }
+        },
+        {
+            "name": "benchmark",
+            "description": "Configure the project for benchmarking with gcc compiler debug mode",
+            "displayName": "Benchmark",
+            "inherits": "gcc-debug",
+            "binaryDir": "${sourceDir}/build/benchmark",
+            "cacheVariables": {
+                "CRT_BENCHMARK": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -79,6 +89,12 @@
             "displayName": "Build Release (on gcc compilers)",
             "inherits": "release-build-base",
             "configurePreset": "gcc-release"
+        },
+        {
+            "name": "benchmark",
+            "displayName": "Benchmark (on gcc compilers)",
+            "inherits": "gcc-debug",
+            "configurePreset": "benchmark"
         }
     ],
     "workflowPresets": [
@@ -105,6 +121,18 @@
                 {
                     "type": "build",
                     "name": "gcc-release"
+                }
+            ]
+        },{
+            "name": "benchmark",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "benchmark"
+                },
+                {
+                    "type": "build",
+                    "name": "benchmark"
                 }
             ]
         }

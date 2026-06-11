@@ -12,6 +12,9 @@ set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_ARCHITECTURES native)
 
+option(CRT_BENCHMARK "Build for performance measuring" OFF)
+add_compile_definitions(CRT_BENCHMARK=$<BOOL:${CRT_BENCHMARK}>)
+
 add_executable(${PROJECT_NAME} ./src/main.cu)
 target_sources(
     ${PROJECT_NAME}

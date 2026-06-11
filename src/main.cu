@@ -22,6 +22,18 @@ __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned in
 namespace
 {
 
+#if !defined(CRT_BENCHMARK)
+#    define CRT_BENCHMARK 0 // NOLINT
+#endif
+
+constexpr bool BENCHMARKING{
+#if CRT_BENCHMARK
+    true
+#else
+    false
+#endif // CRT_BENCHMARK
+};
+
 constexpr auto ERROR_EXIT_CODE{ 99 };
 
 constexpr auto NX{ 1200u };                                   ///< Pixels on the X-Axis (width)
@@ -355,13 +367,36 @@ int main()
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
-    render<<<BLOCKS, THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
-    CHECK_CUDA_ERROR(cudaGetLastError());
-    CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+    if constexpr(::BENCHMARKING)
+    {
+        cudaEvent_t start{ nullptr };
+        cudaEventCreate(&start);
+        cudaEvent_t stop{ nullptr };
+        cudaEventCreate(&stop);
 
-    std::vector<Vec3> framebuffer(::NUM_PIXELS);
-    CHECK_CUDA_ERROR(cudaMemcpy(framebuffer.data(), d_framebuffer, ::FRAMEBUFFER_SIZE, cudaMemcpyDeviceToHost));
-    ::exportImage({ framebuffer.data(), ::NUM_PIXELS });
+        cudaEventRecord(start);
+        render<<<BLOCKS, THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
+        cudaDeviceSynchronize();
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        float ms{ 0.f };
+        cudaEventElapsedTime(&ms, start, stop);
+        fmt::println(
+            "Render time: {:.2f} ms ({:.1f} Mrays/s)",
+            ms,
+            (::NX * ::NY * ::SAMPLE_COUNT * ::MAX_COLOR_ITERATIONS) / (ms * 1000.f) // NOLINT
+        );
+    }
+    else
+    {
+        render<<<BLOCKS, THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
+        CHECK_CUDA_ERROR(cudaGetLastError());
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+
+        std::vector<Vec3> framebuffer(::NUM_PIXELS);
+        CHECK_CUDA_ERROR(cudaMemcpy(framebuffer.data(), d_framebuffer, ::FRAMEBUFFER_SIZE, cudaMemcpyDeviceToHost));
+        ::exportImage({ framebuffer.data(), ::NUM_PIXELS });
+    }
 
     freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
