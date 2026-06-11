@@ -56,9 +56,9 @@
         },
         {
             "name": "benchmark",
-            "description": "Configure the project for benchmarking with gcc compiler debug mode",
+            "description": "Configure the project for benchmarking with gcc compiler release mode",
             "displayName": "Benchmark",
-            "inherits": "gcc-debug",
+            "inherits": "gcc-release",
             "binaryDir": "${sourceDir}/build/benchmark",
             "cacheVariables": {
                 "CRT_BENCHMARK": "ON"
@@ -93,7 +93,7 @@
         {
             "name": "benchmark",
             "displayName": "Benchmark (on gcc compilers)",
-            "inherits": "gcc-debug",
+            "inherits": "gcc-release",
             "configurePreset": "benchmark"
         }
     ],
