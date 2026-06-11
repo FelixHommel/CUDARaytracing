@@ -23,7 +23,7 @@ __device__ inline Vec3 randVec3(curandState* randState)
 __device__ Vec3 randomInUnitSphere(curandState* localRandState)
 __device__ Vec3 randomInUnitSphere(curandState* randState)
 {
-    Vec3 p;
+    Vec3 p{};
 
     do // NOLINT
     {
