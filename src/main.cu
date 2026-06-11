@@ -375,7 +375,8 @@ int main()
 
         cudaEventRecord(start);
         render<<<::BLOCKS, ::THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
-        cudaDeviceSynchronize();
+        CHECK_CUDA_ERROR(cudaGetLastError());
+        CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         cudaEventRecord(stop);
 
         cudaEventSynchronize(stop);
