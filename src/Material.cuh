@@ -85,9 +85,10 @@ public:
 ///
 /// \author Felix Hommel
 /// \date 6/6/2026
-struct Lambertian : IMaterial // NOLINT
+class Lambertian : public IMaterial // NOLINT
 {
-    __device__ Lambertian(const Vec3& a) : albedo(a) {}
+public:
+    __device__ Lambertian(const Vec3& a) : m_albedo(a) {}
     __device__ ~Lambertian() override {} // NOLINT
 
     __device__ bool scatter(
@@ -96,21 +97,23 @@ struct Lambertian : IMaterial // NOLINT
     {
         const Vec3 target{ rec.p + rec.normal + randomInUnitSphere(localRandState) };
         scattered = { rec.p, target - rec.p };
-        attenuation = albedo;
+        attenuation = m_albedo;
 
         return true;
     }
 
-    Vec3 albedo;
+private:
+    Vec3 m_albedo;
 };
 
 /// \brief Material that has a surface that implements Metal reflective properties.
 ///
 /// \author Felix Hommel
 /// \date 6/7/2026
-struct Metal : IMaterial // NOLINT
+class Metal : public IMaterial // NOLINT
 {
-    __device__ Metal(const Vec3& a, float f) : albedo(a), fuzz(f) {}
+public:
+    __device__ Metal(const Vec3& a, float f) : m_albedo(a), m_fuzz(f) {}
     __device__ ~Metal() override {} // NOLINT
 
     __device__ bool scatter(
@@ -118,23 +121,25 @@ struct Metal : IMaterial // NOLINT
     ) const override
     {
         const Vec3 reflected{ reflect(unitVector(in.direction), rec.normal) };
-        scattered = { rec.p, reflected + (fuzz * randomInUnitSphere(localRandState)) };
-        attenuation = albedo;
+        scattered = { rec.p, reflected + (m_fuzz * randomInUnitSphere(localRandState)) };
+        attenuation = m_albedo;
 
         return (dot(scattered.direction, rec.normal) > 0.f);
     }
 
-    Vec3 albedo;
-    float fuzz;
+private:
+    Vec3 m_albedo;
+    float m_fuzz;
 };
 
 /// \brief Material that has a surface that implements Dielectric reflective properties.
 ///
 /// \author Felix Hommel
 /// \date 6/8/2026
-struct Dielectric : IMaterial // NOLINT
+class Dielectric : public IMaterial // NOLINT
 {
-    __device__ Dielectric(float ri) : refractIndex(ri) {}
+public:
+    __device__ Dielectric(float ri) : m_refractIndex(ri) {}
     __device__ ~Dielectric() override {} // NOLINT
 
     __device__ bool scatter(
@@ -153,19 +158,19 @@ struct Dielectric : IMaterial // NOLINT
         if(dot(in.direction, rec.normal) > 0.f)
         {
             outwardNormal = -rec.normal;
-            niOverNt = refractIndex;
+            niOverNt = m_refractIndex;
             cosine = dot(in.direction, rec.normal) / in.direction.length();
-            cosine = std::sqrt(1.f - ((refractIndex * refractIndex) * (1.f - (cosine * cosine))));
+            cosine = std::sqrt(1.f - ((m_refractIndex * m_refractIndex) * (1.f - (cosine * cosine))));
         }
         else
         {
             outwardNormal = rec.normal;
-            niOverNt = 1.f / refractIndex;
+            niOverNt = 1.f / m_refractIndex;
             cosine = -dot(in.direction, rec.normal) / in.direction.length();
         }
 
         if(refract(in.direction, outwardNormal, niOverNt, refracted))
-            reflectProbability = schlick(cosine, refractIndex);
+            reflectProbability = schlick(cosine, m_refractIndex);
         else
             reflectProbability = 1.f;
 
@@ -177,7 +182,8 @@ struct Dielectric : IMaterial // NOLINT
         return true;
     }
 
-    float refractIndex;
+private:
+    float m_refractIndex;
 };
 
 #endif // !CRT_SRC_MATERIAL_CUH
