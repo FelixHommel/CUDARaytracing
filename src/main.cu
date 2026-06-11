@@ -238,7 +238,7 @@ __device__ inline float randNum(curandStatePhilox4_32_10_t* randState)
 /// \param randState The \ref curandState to access the thread local random state
 ///
 /// \returns the generated random number
-__device__ inline float randNumSq(curandStatePhilox4_32_10_t* randState)
+__device__ inline float randNumProduct(curandStatePhilox4_32_10_t* randState)
 {
     return randNum(randState) * randNum(randState);
 }
@@ -278,9 +278,9 @@ __global__ void createWorld(
             if(chooseMat < 0.8f)
                 list[i++] = new Sphere{ center,
                                         0.2f,
-                                        new Lambertian{ Vec3{ randNumSq(&localRandState),
-                                                              randNumSq(&localRandState),
-                                                              randNumSq(&localRandState) } } };
+                                        new Lambertian{ Vec3{ randNumProduct(&localRandState),
+                                                              randNumProduct(&localRandState),
+                                                              randNumProduct(&localRandState) } } };
             else if(chooseMat < 0.95f)
             {
                 const auto metalColorFn{ [&localRandState] { return 0.5f * (1.f + randNum(&localRandState)); } };
