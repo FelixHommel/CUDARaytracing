@@ -24,9 +24,9 @@ namespace
 
 constexpr auto ERROR_EXIT_CODE{ 99 };
 
-constexpr auto NX{ 1200u }; ///< Pixels on the X-Axis (width)
-constexpr auto NY{ 600u };  ///< Pixels on the Y-Axis (height)
-constexpr auto NUM_PIXELS{ NX * NY };
+constexpr auto NX{ 1200u };                                   ///< Pixels on the X-Axis (width)
+constexpr auto NY{ 600u };                                    ///< Pixels on the Y-Axis (height)
+constexpr auto NUM_PIXELS{ NX * NY };                         ///< The amount of pixels in the framebuffer
 constexpr auto FRAMEBUFFER_SIZE{ NUM_PIXELS * sizeof(Vec3) }; ///< Framebuffer size in bytes
 
 constexpr auto TX{ 8 };                                        ///< Threads on the X-Axis
