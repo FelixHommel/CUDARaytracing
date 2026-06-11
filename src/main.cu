@@ -398,9 +398,9 @@ int main()
 
     freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
-    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_camera)));
-    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_world)));
-    CHECK_CUDA_ERROR(cudaFree(reinterpret_cast<void*>(d_list)));
+    CHECK_CUDA_ERROR(cudaFree(static_cast<void*>(d_camera)));
+    CHECK_CUDA_ERROR(cudaFree(static_cast<void*>(d_world)));
+    CHECK_CUDA_ERROR(cudaFree(static_cast<void*>(d_list)));
     CHECK_CUDA_ERROR(cudaFree(d_randState));
     CHECK_CUDA_ERROR(cudaFree(d_framebuffer));
 
