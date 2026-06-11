@@ -46,7 +46,12 @@ constexpr auto TY{ 8 };                                        ///< Threads on t
 constexpr dim3 BLOCKS{ (::NX / ::TX) + 1, (::NY / ::TY) + 1 }; ///< The layout of the blocks for CUDA Kernels
 constexpr dim3 THREADS{ ::TX, ::TY };                          ///< The layout of the threads for CUDA Kernels
 
+constexpr auto MAX_COLOR_ITERATIONS{ 50u };
+__device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
+
 constexpr auto SAMPLE_COUNT{ 100u };
+
+constexpr auto OBJECTS_IN_SCENE{ (22u * 22u) + 1u + 3u };
 
 constexpr auto COLOR_MAX{ 255.99 };
 
@@ -106,9 +111,6 @@ __host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned in
 
 // NOLINTBEGIN: CUDA kernels follow C-style syntax, which the clang-tidy settings do not like
 
-__device__ constexpr auto MAX_COLOR_ITERATIONS{ 50u };
-__device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
-
 /// \brief Calculate the color at a specific \ref Ray position.
 ///
 /// \param r The ray that points to a position
@@ -123,7 +125,7 @@ __device__ Vec3 color(const Ray& r, IHitable** world, curandStatePhilox4_32_10_t
     Ray curRay{ r };
     Vec3 curAttenuation{ 1.f };
 
-    for(int i{ 0 }; i < MAX_COLOR_ITERATIONS; ++i)
+    for(int i{ 0 }; i < ::MAX_COLOR_ITERATIONS; ++i)
     {
         HitRecord rec;
         if((*world)->hit(curRay, 0.001f, FLT_MAX, rec))
@@ -242,9 +244,6 @@ __device__ inline float randNumSq(curandStatePhilox4_32_10_t* randState)
     return randNum(randState) * randNum(randState);
 }
 
-constexpr auto OBJECTS_IN_SCENE{ (22u * 22u) + 1u + 3u };
-__device__ constexpr auto DEV_OBJECTS_IN_SCENE{ OBJECTS_IN_SCENE };
-
 /// \brief Kernel to create the objects that are in the world on the GPU.
 ///
 /// \param list The objects that are in the world
@@ -313,7 +312,7 @@ __global__ void createWorld(
 
     *randState = localRandState;
 
-    *world = new HitableList(list, DEV_OBJECTS_IN_SCENE);
+    *world = new HitableList(list, ::OBJECTS_IN_SCENE);
 
     *camera = new Camera(
         Vec3(13.f, 2.f, 3.f),
@@ -333,7 +332,7 @@ __global__ void createWorld(
 /// \note CUDA Kernel
 __global__ void freeWorld(IHitable** list, IHitable** world, Camera** camera)
 {
-    for(int i{ 0 }; i < DEV_OBJECTS_IN_SCENE; ++i)
+    for(int i{ 0 }; i < ::OBJECTS_IN_SCENE; ++i)
     {
         delete static_cast<Sphere*>(list[i])->pMaterial;
         delete list[i];
@@ -351,14 +350,14 @@ int main()
     CHECK_CUDA_ERROR(cudaGetLastError());
 
     curandStatePhilox4_32_10_t* d_randState{ nullptr };
-    CHECK_CUDA_ERROR(cudaMalloc(&d_randState, NUM_PIXELS * sizeof(curandStatePhilox4_32_10_t)));
+    CHECK_CUDA_ERROR(cudaMalloc(&d_randState, ::NUM_PIXELS * sizeof(curandStatePhilox4_32_10_t)));
 
-    renderInit<<<BLOCKS, THREADS>>>(::NX, ::NY, d_randState);
+    renderInit<<<::BLOCKS, ::THREADS>>>(::NX, ::NY, d_randState);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
     IHitable** d_list{ nullptr };
-    CHECK_CUDA_ERROR(cudaMalloc(&d_list, OBJECTS_IN_SCENE * sizeof(IHitable*)));
+    CHECK_CUDA_ERROR(cudaMalloc(&d_list, ::OBJECTS_IN_SCENE * sizeof(IHitable*)));
     IHitable** d_world{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_world, sizeof(IHitable*)));
     Camera** d_camera{ nullptr };
@@ -375,17 +374,15 @@ int main()
         cudaEventCreate(&stop);
 
         cudaEventRecord(start);
-        render<<<BLOCKS, THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
+        render<<<::BLOCKS, ::THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
         cudaDeviceSynchronize();
         cudaEventRecord(stop);
+
         cudaEventSynchronize(stop);
         float ms{ 0.f };
         cudaEventElapsedTime(&ms, start, stop);
-        fmt::println(
-            "Render time: {:.2f} ms ({:.1f} Mrays/s)",
-            ms,
-            (::NX * ::NY * ::SAMPLE_COUNT * ::MAX_COLOR_ITERATIONS) / (ms * 1000.f) // NOLINT
-        );
+
+        fmt::println("Render time for a {}x{} image: {:.2f} ms", ::NX, ::NY, ms);
     }
     else
     {
