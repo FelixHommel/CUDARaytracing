@@ -14,12 +14,7 @@
 class Vec3
 {
 public:
-    __host__ __device__ constexpr Vec3()
-    {
-        m_data[0] = 0;
-        m_data[1] = 0;
-        m_data[2] = 0;
-    }
+    __host__ __device__ constexpr Vec3() : m_data{ 0.f, 0.f, 0.f } {}
     __host__ __device__ constexpr explicit Vec3(float value)
     {
         m_data[0] = value;
