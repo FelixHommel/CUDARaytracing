@@ -20,7 +20,6 @@ __device__ inline Vec3 randVec3(curandState* randState)
     return { curand_uniform(randState), curand_uniform(randState), curand_uniform(randState) };
 }
 
-__device__ Vec3 randomInUnitSphere(curandState* localRandState)
 __device__ Vec3 randomInUnitSphere(curandState* randState)
 {
     Vec3 p{};
