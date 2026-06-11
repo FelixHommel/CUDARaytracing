@@ -20,6 +20,11 @@ __device__ inline Vec3 randVec3(curandState* randState)
     return { curand_uniform(randState), curand_uniform(randState), curand_uniform(randState) };
 }
 
+/// \brief Generate a random point within a unit sphere.
+///
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \returns \ref Vec3 the point that lies somewhere within the unit sphere
 __device__ Vec3 randomInUnitSphere(curandState* randState)
 {
     Vec3 p{};
@@ -61,6 +66,10 @@ __device__ float schlick(float cosine, float refractIndex)
     return r0 + ((1.f - r0) * std::pow(1.f - cosine, 5.f)); // NOLINT
 }
 
+/// \brief Interface description that any Material type should adhere to.
+///
+/// \author Felix Hommel
+/// \date 6/6/2026
 class IMaterial // NOLINT
 {
 public:
@@ -72,6 +81,10 @@ public:
     ) const = 0;
 };
 
+/// \brief Material that has a surface that implements the Lambertian reflectance model.
+///
+/// \author Felix Hommel
+/// \date 6/6/2026
 struct Lambertian : IMaterial // NOLINT
 {
     __device__ Lambertian(const Vec3& a) : albedo(a) {}
@@ -91,6 +104,10 @@ struct Lambertian : IMaterial // NOLINT
     Vec3 albedo;
 };
 
+/// \brief Material that has a surface that implements Metal reflective properties.
+///
+/// \author Felix Hommel
+/// \date 6/7/2026
 struct Metal : IMaterial // NOLINT
 {
     __device__ Metal(const Vec3& a, float f) : albedo(a), fuzz(f) {}
@@ -111,6 +128,10 @@ struct Metal : IMaterial // NOLINT
     float fuzz;
 };
 
+/// \brief Material that has a surface that implements Dielectric reflective properties.
+///
+/// \author Felix Hommel
+/// \date 6/8/2026
 struct Dielectric : IMaterial // NOLINT
 {
     __device__ Dielectric(float ri) : refractIndex(ri) {}
