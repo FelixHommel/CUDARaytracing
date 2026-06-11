@@ -1,4 +1,5 @@
 #include "src/Camera.cuh"
+#include "src/DeviceUtility.cuh"
 #include "src/HitableList.cuh"
 #include "src/IHitable.cuh"
 #include "src/Ray.cuh"
@@ -186,8 +187,8 @@ __global__ void render(
     auto c{ Vec3{ 0.f } };
     for(int s{ 0 }; s < sampleCount; ++s)
     {
-        const auto u{ (static_cast<float>(i) + curand_uniform(&localRandState)) / static_cast<float>(width) };
-        const auto v{ (static_cast<float>(j) + curand_uniform(&localRandState)) / static_cast<float>(height) };
+        const auto u{ (static_cast<float>(i) + device::randNum(&localRandState)) / static_cast<float>(width) };
+        const auto v{ (static_cast<float>(j) + device::randNum(&localRandState)) / static_cast<float>(height) };
 
         c += color((*camera)->getRay(u, v), world, &localRandState);
     }
@@ -223,15 +224,6 @@ __global__ void renderInit(int width, int height, curandStatePhilox4_32_10_t* ra
     curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
 }
 
-/// \brief Generate a random number.
-///
-/// \param randState The \ref curandState to access the thread local random state
-///
-/// \returns the generated random number
-__device__ inline float randNum(curandStatePhilox4_32_10_t* randState)
-{
-    return curand_uniform(randState);
-}
 
 /// \brief Generate two random numbers and multiply them.
 ///
@@ -240,7 +232,7 @@ __device__ inline float randNum(curandStatePhilox4_32_10_t* randState)
 /// \returns the generated random number
 __device__ inline float randNumProduct(curandStatePhilox4_32_10_t* randState)
 {
-    return randNum(randState) * randNum(randState);
+    return device::randNum(randState) * device::randNum(randState);
 }
 
 /// \brief Kernel to create the objects that are in the world on the GPU.
@@ -272,8 +264,8 @@ __global__ void createWorld(
     {
         for(int b{ -11 }; b < 11; ++b)
         {
-            const float chooseMat{ randNum(&localRandState) };
-            const Vec3 center{ a + randNum(&localRandState), 0.2f, b + randNum(&localRandState) };
+            const float chooseMat{ device::randNum(&localRandState) };
+            const Vec3 center{ a + device::randNum(&localRandState), 0.2f, b + device::randNum(&localRandState) };
 
             if(chooseMat < 0.8f)
                 list[i++] = new Sphere{ center,
@@ -283,12 +275,15 @@ __global__ void createWorld(
                                                               randNumProduct(&localRandState) } } };
             else if(chooseMat < 0.95f)
             {
-                const auto metalColorFn{ [&localRandState] { return 0.5f * (1.f + randNum(&localRandState)); } };
+                const auto metalColorFn{ [&localRandState] {
+                    return 0.5f * (1.f + device::randNum(&localRandState));
+                } };
 
                 list[i++] = new Sphere{
                     center,
                     0.2f,
-                    new Metal{ Vec3{ metalColorFn(), metalColorFn(), metalColorFn() }, 0.5f * randNum(&localRandState) }
+                    new Metal{ Vec3{ metalColorFn(), metalColorFn(), metalColorFn() },
+                              0.5f * device::randNum(&localRandState) }
                 };
             }
             else
