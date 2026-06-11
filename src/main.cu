@@ -210,7 +210,26 @@ __global__ void renderInit(int width, int height, curandState* randState)
     curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
 }
 
-#define RND (curand_uniform(&localRandState))
+/// \brief Generate a random number.
+///
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \returns the generated random number
+__device__ inline float randNum(curandState* randState)
+{
+    return curand_uniform(randState);
+}
+
+/// \brief Generate two random numbers and multiply them.
+///
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \returns the generated random number
+__device__ inline float randNumSq(curandState* randState)
+{
+    return randNum(randState) * randNum(randState);
+}
+
 constexpr auto OBJECTS_IN_SCENE{ (22u * 22u) + 1u + 3u };
 __device__ constexpr auto DEV_OBJECTS_IN_SCENE{ OBJECTS_IN_SCENE };
 
@@ -243,17 +262,23 @@ __global__ void createWorld(
     {
         for(int b{ -11 }; b < 11; ++b)
         {
-            const float chooseMat{ curand_uniform(&localRandState) };
-            const Vec3 center{ a + curand_uniform(&localRandState), 0.2f, b + curand_uniform(&localRandState) };
+            const float chooseMat{ randNum(&localRandState) };
+            const Vec3 center{ a + randNum(&localRandState), 0.2f, b + randNum(&localRandState) };
 
             if(chooseMat < 0.8f)
-                list[i++] = new Sphere{ center, 0.2f, new Lambertian{ Vec3{ RND * RND, RND * RND, RND * RND } } };
+                list[i++] = new Sphere{ center,
+                                        0.2f,
+                                        new Lambertian{ Vec3{ randNumSq(&localRandState),
+                                                              randNumSq(&localRandState),
+                                                              randNumSq(&localRandState) } } };
             else if(chooseMat < 0.95f)
             {
-                const auto metalColorFn{ [&localRandState] { return 0.5f * (1.f + RND); } };
+                const auto metalColorFn{ [&localRandState] { return 0.5f * (1.f + randNum(&localRandState)); } };
 
                 list[i++] = new Sphere{
-                    center, 0.2f, new Metal{ Vec3{ metalColorFn(), metalColorFn(), metalColorFn() }, 0.5f * RND }
+                    center,
+                    0.2f,
+                    new Metal{ Vec3{ metalColorFn(), metalColorFn(), metalColorFn() }, 0.5f * randNum(&localRandState) }
                 };
             }
             else
