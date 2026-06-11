@@ -15,7 +15,7 @@
 /// \param randState The \ref curandState to access the thread local random state
 ///
 /// \returns \ref Vec3 with random x, y, and z components
-__device__ inline Vec3 randVec3(curandState* randState)
+__device__ inline Vec3 randVec3(curandStatePhilox4_32_10_t* randState)
 {
     return { curand_uniform(randState), curand_uniform(randState), curand_uniform(randState) };
 }
@@ -25,7 +25,7 @@ __device__ inline Vec3 randVec3(curandState* randState)
 /// \param randState The \ref curandState to access the thread local random state
 ///
 /// \returns \ref Vec3 the point that lies somewhere within the unit sphere
-__device__ Vec3 randomInUnitSphere(curandState* randState)
+__device__ Vec3 randomInUnitSphere(curandStatePhilox4_32_10_t* randState)
 {
     Vec3 p{};
 
@@ -77,7 +77,11 @@ public:
     __device__ virtual ~IMaterial() {} // NOLINT
 
     __device__ virtual bool scatter(
-        const Ray& in, const HitRecord& rec, Vec3& attenuation, Ray& scattered, curandState* localRandState
+        const Ray& in,
+        const HitRecord& rec,
+        Vec3& attenuation,
+        Ray& scattered,
+        curandStatePhilox4_32_10_t* localRandState
     ) const = 0;
 };
 
@@ -92,7 +96,11 @@ public:
     __device__ ~Lambertian() override {} // NOLINT
 
     __device__ bool scatter(
-        const Ray& /*in*/, const HitRecord& rec, Vec3& attenuation, Ray& scattered, curandState* localRandState
+        const Ray& /*in*/,
+        const HitRecord& rec,
+        Vec3& attenuation,
+        Ray& scattered,
+        curandStatePhilox4_32_10_t* localRandState
     ) const override
     {
         const Vec3 target{ rec.p + rec.normal + randomInUnitSphere(localRandState) };
@@ -117,7 +125,11 @@ public:
     __device__ ~Metal() override {} // NOLINT
 
     __device__ bool scatter(
-        const Ray& in, const HitRecord& rec, Vec3& attenuation, Ray& scattered, curandState* localRandState
+        const Ray& in,
+        const HitRecord& rec,
+        Vec3& attenuation,
+        Ray& scattered,
+        curandStatePhilox4_32_10_t* localRandState
     ) const override
     {
         const Vec3 reflected{ reflect(unitVector(in.direction), rec.normal) };
@@ -143,7 +155,11 @@ public:
     __device__ ~Dielectric() override {} // NOLINT
 
     __device__ bool scatter(
-        const Ray& in, const HitRecord& rec, Vec3& attenuation, Ray& scattered, curandState* localRandState
+        const Ray& in,
+        const HitRecord& rec,
+        Vec3& attenuation,
+        Ray& scattered,
+        curandStatePhilox4_32_10_t* localRandState
     ) const override
     {
         const Vec3 reflected{ reflect(in.direction, rec.normal) };

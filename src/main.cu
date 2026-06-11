@@ -106,7 +106,7 @@ __device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
 /// \returns Vec3 Color at that position
 ///
 /// \note Only callable from a CUDA Kernel or other device functions.
-__device__ Vec3 color(const Ray& r, IHitable** world, curandState* localRandState)
+__device__ Vec3 color(const Ray& r, IHitable** world, curandStatePhilox4_32_10_t* localRandState)
 {
     Ray curRay{ r };
     Vec3 curAttenuation{ 1.f };
@@ -158,7 +158,7 @@ __global__ void render(
     unsigned int sampleCount,
     Camera** camera,
     IHitable** world,
-    curandState* randState
+    curandStatePhilox4_32_10_t* randState
 )
 {
     const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
@@ -197,7 +197,7 @@ __global__ void render(
 /// \param randState The \ref curandState to access the thread local random state
 ///
 /// \note CUDA Kernel
-__global__ void renderInit(int width, int height, curandState* randState)
+__global__ void renderInit(int width, int height, curandStatePhilox4_32_10_t* randState)
 {
     const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
     const auto j{ threadIdx.y + (blockIdx.y * blockDim.y) };
@@ -215,7 +215,7 @@ __global__ void renderInit(int width, int height, curandState* randState)
 /// \param randState The \ref curandState to access the thread local random state
 ///
 /// \returns the generated random number
-__device__ inline float randNum(curandState* randState)
+__device__ inline float randNum(curandStatePhilox4_32_10_t* randState)
 {
     return curand_uniform(randState);
 }
@@ -225,7 +225,7 @@ __device__ inline float randNum(curandState* randState)
 /// \param randState The \ref curandState to access the thread local random state
 ///
 /// \returns the generated random number
-__device__ inline float randNumSq(curandState* randState)
+__device__ inline float randNumSq(curandStatePhilox4_32_10_t* randState)
 {
     return randNum(randState) * randNum(randState);
 }
@@ -244,7 +244,7 @@ __device__ constexpr auto DEV_OBJECTS_IN_SCENE{ OBJECTS_IN_SCENE };
 ///
 /// \note CUDA Kernel
 __global__ void createWorld(
-    IHitable** list, IHitable** world, Camera** camera, int width, int height, curandState* randState
+    IHitable** list, IHitable** world, Camera** camera, int width, int height, curandStatePhilox4_32_10_t* randState
 )
 {
     if(!(threadIdx.x == 0 && blockIdx.x == 0))
@@ -338,8 +338,8 @@ int main()
     CHECK_CUDA_ERROR(cudaMalloc(&d_framebuffer, ::FRAMEBUFFER_SIZE));
     CHECK_CUDA_ERROR(cudaGetLastError());
 
-    curandState* d_randState{ nullptr };
-    CHECK_CUDA_ERROR(cudaMalloc(&d_randState, NUM_PIXELS * sizeof(curandState)));
+    curandStatePhilox4_32_10_t* d_randState{ nullptr };
+    CHECK_CUDA_ERROR(cudaMalloc(&d_randState, NUM_PIXELS * sizeof(curandStatePhilox4_32_10_t)));
 
     renderInit<<<BLOCKS, THREADS>>>(::NX, ::NY, d_randState);
     CHECK_CUDA_ERROR(cudaGetLastError());
