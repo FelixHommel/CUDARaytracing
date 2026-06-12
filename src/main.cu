@@ -45,8 +45,6 @@ constexpr auto SAMPLE_COUNT{ 100u };
 
 constexpr auto COLOR_MAX{ 255.99 };
 
-#define CHECK_CUDA_ERROR(val) ::checkCuda((val), #val, __FILE__, __LINE__)
-
 /// \brief Check if a CUDA call produced an error.
 ///
 /// \param result The return value of a CUDA call
@@ -63,6 +61,7 @@ void checkCuda(cudaError_t result, char const* func, char const* file, int line)
         std::exit(::ERROR_EXIT_CODE);
     }
 }
+#define CHECK_CUDA_ERROR(val) ::checkCuda((val), #val, __FILE__, __LINE__)
 
 /// \brief Export framebuffer as PPM image.
 ///
