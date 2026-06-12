@@ -28,7 +28,8 @@ target_sources(
                 ./src/Sphere.cuh
                 ./src/Camera.cuh
                 ./src/Material.cuh
-                ./src/DeviceUtility.cuh
+                ./src/Utility.cuh
+                ./src/RayTracer.cuh
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20 cuda_std_20)

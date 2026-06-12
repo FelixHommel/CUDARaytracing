@@ -1,9 +1,9 @@
 #include "src/Camera.cuh"
-#include "src/DeviceUtility.cuh"
 #include "src/HitableList.cuh"
 #include "src/IHitable.cuh"
 #include "src/Ray.cuh"
 #include "src/Sphere.cuh"
+#include "src/Utility.cuh"
 #include "src/Vec3.cuh"
 
 #include <cuda_runtime.h>
@@ -14,8 +14,6 @@
 #include <cstdlib>
 #include <span>
 #include <vector>
-
-__host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned int y, unsigned int width);
 
 #define CHECK_CUDA_ERROR(val) ::check_cuda((val), #val, __FILE__, __LINE__)
 
@@ -83,7 +81,7 @@ void exportImage(std::span<const Vec3> framebuffer)
     {
         for(int i{ 0 }; i < NX; i++)
         {
-            const std::size_t pixelIndex{ calculatePixelIndex(i, j, NX) };
+            const std::size_t pixelIndex{ shared::calculatePixelIndex(i, j, ::NX) };
 
             fmt::println(
                 "{} {} {}",
@@ -96,18 +94,6 @@ void exportImage(std::span<const Vec3> framebuffer)
 }
 
 } // namespace
-
-/// \brief Convert a (x, y) position to the index of a pixel.
-///
-/// \param x Component on the X-Axis
-/// \param y Component on the Y-Axis
-/// \param width The width of the framebuffer
-///
-/// \note Available on \p host and \p device
-__host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned int y, unsigned int width)
-{
-    return (y * width) + x;
-}
 
 // NOLINTBEGIN: CUDA kernels follow C-style syntax, which the clang-tidy settings do not like
 
@@ -223,16 +209,6 @@ __global__ void renderInit(int width, int height, curandStatePhilox4_32_10_t* ra
     const auto pixelIndex{ calculatePixelIndex(i, j, width) };
 
     curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
-}
-
-/// \brief Generate two random numbers and multiply them.
-///
-/// \param randState The \ref curandState to access the thread local random state
-///
-/// \returns the generated random number
-__device__ inline float randNumProduct(curandState* randState)
-{
-    return device::randNum(randState) * device::randNum(randState);
 }
 
 __global__ void worldRandInit(curandState* randState)

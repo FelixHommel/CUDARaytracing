@@ -5,6 +5,23 @@
 
 #include <curand_kernel.h>
 
+namespace shared
+{
+
+/// \brief Convert a (x, y) position to the index of a pixel.
+///
+/// \param x Component on the X-Axis
+/// \param y Component on the Y-Axis
+/// \param width The width of the framebuffer
+///
+/// \note Available on \p host and \p device
+__host__ __device__ unsigned int calculatePixelIndex(unsigned int x, unsigned int y, unsigned int width)
+{
+    return (y * width) + x;
+}
+
+} // namespace shared
+
 namespace device
 {
 
@@ -36,6 +53,16 @@ __device__ inline float randNum(curandState* randState)
 __device__ inline Vec3 randVec3(curandStatePhilox4_32_10_t* randState)
 {
     return { randNum(randState), randNum(randState), randNum(randState) };
+}
+
+/// \brief Generate two random numbers and multiply them.
+///
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \returns the generated random number
+__device__ inline float randNumProduct(curandState* randState)
+{
+    return device::randNum(randState) * device::randNum(randState);
 }
 
 /// \brief Generate a random point within a unit sphere.

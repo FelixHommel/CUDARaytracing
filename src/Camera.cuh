@@ -1,8 +1,8 @@
 #ifndef CRT_SRC_CAMERA_CUH
 #define CRT_SRC_CAMERA_CUH
 
-#include "src/DeviceUtility.cuh"
 #include "src/Ray.cuh"
+#include "src/Utility.cuh"
 #include "src/Vec3.cuh"
 
 #include <cmath>
