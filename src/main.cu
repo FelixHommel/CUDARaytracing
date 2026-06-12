@@ -75,11 +75,11 @@ void checkCuda(cudaError_t result, char const* func, char const* file, int line)
 /// \param framebuffer span of floats that represent the color values
 void exportImage(std::span<const Vec3> framebuffer)
 {
-    fmt::println("P3\n{} {}\n255", NX, NY);
+    fmt::println("P3\n{} {}\n255", ::NX, ::NY);
 
-    for(int j{ NY - 1 }; j >= 0; j--)
+    for(int j{ ::NY - 1 }; j >= 0; j--)
     {
-        for(int i{ 0 }; i < NX; i++)
+        for(int i{ 0 }; i < ::NX; i++)
         {
             const std::size_t pixelIndex{ shared::calculatePixelIndex(i, j, ::NX) };
 
