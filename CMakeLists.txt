@@ -30,6 +30,7 @@ target_sources(
                 ./src/Material.cuh
                 ./src/Utility.cuh
                 ./src/RayTracer.cuh
+                ./src/Error.cuh
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20 cuda_std_20)

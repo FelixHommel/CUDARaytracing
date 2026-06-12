@@ -1,4 +1,5 @@
 #include "src/Camera.cuh"
+#include "src/Error.cuh"
 #include "src/IHitable.cuh"
 #include "src/RayTracer.cuh"
 #include "src/Utility.cuh"
@@ -44,24 +45,6 @@ constexpr dim3 THREADS{ ::TX, ::TY };                          ///< The layout o
 constexpr auto SAMPLE_COUNT{ 100u };
 
 constexpr auto COLOR_MAX{ 255.99 };
-
-/// \brief Check if a CUDA call produced an error.
-///
-/// \param result The return value of a CUDA call
-/// \param func Name of the function that was called
-/// \param file Name of the file where the call was made
-/// \param line Linenumber in which the call was made
-void checkCuda(cudaError_t result, char const* func, char const* file, int line)
-{
-    if(result != cudaSuccess)
-    {
-        fmt::println("CUDA error = {} at {}: {} '{}'", static_cast<unsigned int>(result), file, line, func);
-
-        cudaDeviceReset();
-        std::exit(::ERROR_EXIT_CODE);
-    }
-}
-#define CHECK_CUDA_ERROR(val) ::checkCuda((val), #val, __FILE__, __LINE__)
 
 /// \brief Export framebuffer as PPM image.
 ///
