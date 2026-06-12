@@ -3,6 +3,9 @@
 This is a CUDA-based raytracer following [Peter Shirley's Raytracing in one Weekend series](https://raytracing.github.io/)
 but using CUDA kernels instead of CPU-based computation.
 
+![Preview image](./docs/readme/book1.png)
+> Progress after finishing the first book
+
 ## Requirements
 
 - GPU with compute capability 7.5 or higher
