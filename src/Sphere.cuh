@@ -1,10 +1,10 @@
 #ifndef CRT_SRC_SPHERE_CUH
 #define CRT_SRC_SPHERE_CUH
 
-#include "src/IHitable.cuh"
-#include "src/Material.cuh"
-#include "src/Ray.cuh"
-#include "src/Vec3.cuh"
+#include "IHitable.cuh"
+#include "Material.cuh"
+#include "Ray.cuh"
+#include "Vec3.cuh"
 
 #include <cmath>
 

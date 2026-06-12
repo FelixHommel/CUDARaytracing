@@ -1,7 +1,7 @@
 #ifndef CRT_SRC_RAY_CUH
 #define CRT_SRC_RAY_CUH
 
-#include "src/Vec3.cuh"
+#include "Vec3.cuh"
 
 #include <cuda_runtime_api.h>
 

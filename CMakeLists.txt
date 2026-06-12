@@ -14,9 +14,11 @@ set(CMAKE_CUDA_ARCHITECTURES native)
 
 option(CRT_BENCHMARK "Build for performance measuring" OFF)
 
-add_executable(${PROJECT_NAME} ./src/main.cu)
+set(NAME "CRTLib")
+
+add_library(${NAME} ./src/RayTracer.cu)
 target_sources(
-    ${PROJECT_NAME}
+    ${NAME}
     PRIVATE
         FILE_SET HEADERS
             FILES
@@ -31,10 +33,15 @@ target_sources(
                 ./src/RayTracer.cuh
                 ./src/Error.cuh
 )
+target_include_directories(${NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_compile_features(${NAME} PRIVATE cxx_std_20 cuda_std_20)
+target_link_libraries(${NAME} PRIVATE fmt::fmt)
+
+add_executable(${PROJECT_NAME} ./src/main.cu)
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20 cuda_std_20)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${NAME} fmt::fmt)
 
 if(CRT_BENCHMARK)
     add_subdirectory(benchmark)

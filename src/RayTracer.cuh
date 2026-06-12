@@ -1,14 +1,14 @@
 #ifndef CRT_SRC_RAY_TRACER_CUH
 #define CRT_SRC_RAY_TRACER_CUH
 
-#include "src/Camera.cuh"
-#include "src/HitableList.cuh"
-#include "src/IHitable.cuh"
-#include "src/Material.cuh"
-#include "src/Ray.cuh"
-#include "src/Sphere.cuh"
-#include "src/Utility.cuh"
-#include "src/Vec3.cuh"
+#include "Camera.cuh"
+#include "HitableList.cuh"
+#include "IHitable.cuh"
+#include "Material.cuh"
+#include "Ray.cuh"
+#include "Sphere.cuh"
+#include "Utility.cuh"
+#include "Vec3.cuh"
 
 #include <curand_kernel.h>
 

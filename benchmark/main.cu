@@ -1,8 +1,8 @@
-#include "src/Camera.cuh"
-#include "src/Error.cuh"
-#include "src/IHitable.cuh"
-#include "src/RayTracer.cuh"
-#include "src/Vec3.cuh"
+#include "Camera.cuh"
+#include "Error.cuh"
+#include "IHitable.cuh"
+#include "RayTracer.cuh"
+#include "Vec3.cuh"
 
 #include <cuda_runtime.h>
 #include <curand_kernel.h>

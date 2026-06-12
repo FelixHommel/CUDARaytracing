@@ -1,7 +1,7 @@
 #ifndef CRT_SRC_DEVICE_UTILITY_CUH
 #define CRT_SRC_DEVICE_UTILITY_CUH
 
-#include "src/Vec3.cuh"
+#include "Vec3.cuh"
 
 #include <curand_kernel.h>
 

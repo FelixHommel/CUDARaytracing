@@ -1,8 +1,8 @@
 #ifndef CRT_SRC_HITABLE_LIST_CUH
 #define CRT_SRC_HITABLE_LIST_CUH
 
-#include "src/IHitable.cuh"
-#include "src/Ray.cuh"
+#include "IHitable.cuh"
+#include "Ray.cuh"
 
 /// \brief Container that manages multiple \ref IHitable.
 ///

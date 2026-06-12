@@ -3,8 +3,8 @@
 
 class IMaterial;
 
-#include "src/Ray.cuh"
-#include "src/Vec3.cuh"
+#include "Ray.cuh"
+#include "Vec3.cuh"
 
 /// \brief Document a hit between a \ref Ray and a \ref IHitable.
 ///
