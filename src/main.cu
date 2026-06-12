@@ -230,9 +230,15 @@ __global__ void renderInit(int width, int height, curandStatePhilox4_32_10_t* ra
 /// \param randState The \ref curandState to access the thread local random state
 ///
 /// \returns the generated random number
-__device__ inline float randNumProduct(curandStatePhilox4_32_10_t* randState)
+__device__ inline float randNumProduct(curandState* randState)
 {
     return device::randNum(randState) * device::randNum(randState);
+}
+
+__global__ void worldRandInit(curandState* randState)
+{
+    if(threadIdx.x == 0 && blockIdx.x == 0)
+        curand_init(0xC0FFEE, 0, 0, randState);
 }
 
 /// \brief Kernel to create the objects that are in the world on the GPU.
@@ -246,7 +252,7 @@ __device__ inline float randNumProduct(curandStatePhilox4_32_10_t* randState)
 ///
 /// \note CUDA Kernel
 __global__ void createWorld(
-    IHitable** list, IHitable** world, Camera** camera, int width, int height, curandStatePhilox4_32_10_t* randState
+    IHitable** list, IHitable** world, Camera** camera, int width, int height, curandState* randState
 )
 {
     if(!(threadIdx.x == 0 && blockIdx.x == 0))
@@ -364,13 +370,20 @@ int main()
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
+    curandState* d_randStateWorld{ nullptr };
+    CHECK_CUDA_ERROR(cudaMalloc(&d_randStateWorld, sizeof(curandState)));
+
+    worldRandInit<<<1, 1>>>(d_randStateWorld);
+    CHECK_CUDA_ERROR(cudaGetLastError());
+    CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+
     IHitable** d_list{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_list, ::OBJECTS_IN_SCENE * sizeof(IHitable*)));
     IHitable** d_world{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_world, sizeof(IHitable*)));
     Camera** d_camera{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_camera, sizeof(Camera*)));
-    createWorld<<<1, 1>>>(d_list, d_world, d_camera, ::NX, ::NY, d_randState);
+    createWorld<<<1, 1>>>(d_list, d_world, d_camera, ::NX, ::NY, d_randStateWorld);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
@@ -410,6 +423,7 @@ int main()
     CHECK_CUDA_ERROR(cudaFree(static_cast<void*>(d_world)));
     CHECK_CUDA_ERROR(cudaFree(static_cast<void*>(d_list)));
     CHECK_CUDA_ERROR(cudaFree(d_randState));
+    CHECK_CUDA_ERROR(cudaFree(d_randStateWorld));
     CHECK_CUDA_ERROR(cudaFree(d_framebuffer));
 
     cudaDeviceReset();
