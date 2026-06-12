@@ -29,3 +29,21 @@ cmake --build --preset gcc-debug
 ```
 
 > Alternatively, the ```debug``` suffix can be replaced with ```release``` for faster execution time.
+
+## Benchmarking
+
+To time how long the rendering using CUDA takes you can build the project with benchmarking enabled by simply using the
+
+```bash
+cmake --preset benchmark
+```
+
+command to configure the project, followed by
+
+```bash
+cmake --build --preset benchmark
+```
+
+to build the project as well as the benchmarking executable. The executable can be found at ```build/benchmark/benchmark/CRTBenchmark```.
+
+> If you do not want to use the preset, just pass ```-DCRT_BENCHMARK=ON``` when configuring CMake to also enable the benchmark build
