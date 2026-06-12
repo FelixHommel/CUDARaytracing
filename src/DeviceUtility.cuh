@@ -46,6 +46,23 @@ __device__ Vec3 randomInUnitSphere(curandStatePhilox4_32_10_t* randState)
     return p;
 }
 
+/// \brief
+///
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \returns \ref Vec3
+__device__ Vec3 randomInUnitDisk(curandStatePhilox4_32_10_t* randState)
+{
+    Vec3 p{};
+    do // NOLINT
+    {
+        p = 2.f * Vec3{ device::randNum(randState), device::randNum(randState), 0.f } - Vec3{ 1.f, 1.f, 0.f };
+    }
+    while(dot(p, p) >= 1.f);
+
+    return p;
+}
+
 __device__ inline Vec3 reflect(const Vec3& v, const Vec3& n)
 {
     return v - (2.f * dot(v, n) * n);

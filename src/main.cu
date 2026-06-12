@@ -190,7 +190,7 @@ __global__ void render(
         const auto u{ (static_cast<float>(i) + device::randNum(&localRandState)) / static_cast<float>(width) };
         const auto v{ (static_cast<float>(j) + device::randNum(&localRandState)) / static_cast<float>(height) };
 
-        c += color((*camera)->getRay(u, v), world, &localRandState);
+        c += color((*camera)->getRay(u, v, &localRandState), world, &localRandState);
     }
 
     randState[pixelIndex] = localRandState;
@@ -313,12 +313,20 @@ __global__ void createWorld(
 
     *world = new HitableList(list, ::OBJECTS_IN_SCENE);
 
+    Vec3 lookFrom{ 13.f, 2.f, 3.f };
+    Vec3 lookAt{ 0.f, 0.f, 0.f };
+    float distanceToFocus{ (lookFrom - lookAt).length() };
+    float aperture{ 2.f };
+    printf("distanceToFocus = %f\n", distanceToFocus);
+    printf("aperture = %f\n", aperture);
     *camera = new Camera(
-        Vec3(13.f, 2.f, 3.f),
-        Vec3(0.f, 0.f, 0.f),
+        lookFrom,
+        lookAt,
         Vec3(0.f, 1.f, 0.f),
         30.f,
-        (static_cast<float>(width) / static_cast<float>(height))
+        (static_cast<float>(width) / static_cast<float>(height)),
+        aperture,
+        distanceToFocus
     );
 }
 
