@@ -190,7 +190,8 @@ __global__ void render(
         const auto u{ (static_cast<float>(i) + device::randNum(&localRandState)) / static_cast<float>(width) };
         const auto v{ (static_cast<float>(j) + device::randNum(&localRandState)) / static_cast<float>(height) };
 
-        c += color((*camera)->getRay(u, v, &localRandState), world, &localRandState);
+        const auto r{ (*camera)->getRay(u, v, &localRandState) };
+        c += color(r, world, &localRandState);
     }
 
     randState[pixelIndex] = localRandState;
