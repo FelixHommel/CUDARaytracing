@@ -1,8 +1,6 @@
 #include "src/Camera.cuh"
-#include "src/HitableList.cuh"
 #include "src/IHitable.cuh"
-#include "src/Ray.cuh"
-#include "src/Sphere.cuh"
+#include "src/RayTracer.cuh"
 #include "src/Utility.cuh"
 #include "src/Vec3.cuh"
 
@@ -10,7 +8,6 @@
 #include <curand_kernel.h>
 #include <fmt/base.h>
 
-#include <cfloat>
 #include <cstdlib>
 #include <span>
 #include <vector>
@@ -18,11 +15,13 @@
 namespace
 {
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage): ensure CRT_BENCHMARK is defined, just in case CMake did not do it
 #if !defined(CRT_BENCHMARK)
-#    define CRT_BENCHMARK 0 // NOLINT
+#    define CRT_BENCHMARK 0
 #endif
+// NOLINTEND(cppcoreguidelines-macro-usage)
 
-constexpr bool BENCHMARKING{
+constexpr auto BENCHMARKING{
 #if CRT_BENCHMARK
     true
 #else
@@ -30,7 +29,7 @@ constexpr bool BENCHMARKING{
 #endif // CRT_BENCHMARK
 };
 
-constexpr auto ERROR_EXIT_CODE{ 99 };
+constexpr auto ERROR_EXIT_CODE{ 1 };
 
 constexpr auto NX{ 1200u };                                   ///< Pixels on the X-Axis (width)
 constexpr auto NY{ 600u };                                    ///< Pixels on the Y-Axis (height)
@@ -42,12 +41,7 @@ constexpr auto TY{ 8 };                                        ///< Threads on t
 constexpr dim3 BLOCKS{ (::NX / ::TX) + 1, (::NY / ::TY) + 1 }; ///< The layout of the blocks for CUDA Kernels
 constexpr dim3 THREADS{ ::TX, ::TY };                          ///< The layout of the threads for CUDA Kernels
 
-constexpr auto MAX_COLOR_ITERATIONS{ 50u };
-__device__ constexpr auto DEV_COLOR_FACTOR{ Vec3(0.5f, 0.7f, 1.f) };
-
 constexpr auto SAMPLE_COUNT{ 100u };
-
-constexpr auto OBJECTS_IN_SCENE{ (22u * 22u) + 1u + 3u };
 
 constexpr auto COLOR_MAX{ 255.99 };
 
@@ -95,242 +89,6 @@ void exportImage(std::span<const Vec3> framebuffer)
 
 } // namespace
 
-// NOLINTBEGIN: CUDA kernels follow C-style syntax, which the clang-tidy settings do not like
-
-/// \brief Calculate the color at a specific \ref Ray position.
-///
-/// \param r The ray that points to a position
-/// \param world List of all objects in the world
-/// \param localRandState The thread local \ref curandState
-///
-/// \returns Vec3 Color at that position
-///
-/// \note Only callable from a CUDA Kernel or other device functions.
-__device__ Vec3 color(const Ray& r, IHitable** world, curandStatePhilox4_32_10_t* localRandState)
-{
-    Ray curRay{ r };
-    Vec3 curAttenuation{ 1.f };
-
-    for(int i{ 0 }; i < ::MAX_COLOR_ITERATIONS; ++i)
-    {
-        HitRecord rec;
-        if((*world)->hit(curRay, 0.001f, FLT_MAX, rec))
-        {
-            Ray scattered;
-            Vec3 attenuation;
-
-            if(rec.pMaterial->scatter(curRay, rec, attenuation, scattered, localRandState))
-            {
-                curAttenuation *= attenuation;
-                curRay = scattered;
-            }
-            else
-                return Vec3{ 0.f };
-        }
-        else
-        {
-            const Vec3 dir{ unitVector(r.direction) };
-            const float t{ 0.5f * (dir.y() + 1.f) };
-            const Vec3 c{ (1.f - t) * Vec3(1.f) + t * DEV_COLOR_FACTOR };
-
-            return curAttenuation * c;
-        }
-    }
-
-    return Vec3{ 0.f };
-}
-
-/// \brief Kernel that produces the framebuffer.
-///
-/// \param pFramebuffer The framebuffer array
-/// \param width The width of the framebuffer
-/// \param height The height of the framebuffer
-/// \param sampleCount The amount of samples taken per pixel
-/// \param camera The \ref Camera that observes the scene
-/// \param world List of all objects in the world
-/// \param randState The \ref curandState to access the thread local random state
-///
-/// \note CUDA Kernel
-__global__ void render(
-    Vec3* pFramebuffer,
-    int width,
-    int height,
-    unsigned int sampleCount,
-    Camera** camera,
-    IHitable** world,
-    curandStatePhilox4_32_10_t* randState
-)
-{
-    const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
-    const auto j{ threadIdx.y + (blockIdx.y * blockDim.y) };
-
-    if(i >= width || j >= height)
-        return;
-
-    const auto pixelIndex{ calculatePixelIndex(i, j, width) };
-    auto localRandState{ randState[pixelIndex] };
-
-    auto c{ Vec3{ 0.f } };
-    for(int s{ 0 }; s < sampleCount; ++s)
-    {
-        const auto u{ (static_cast<float>(i) + device::randNum(&localRandState)) / static_cast<float>(width) };
-        const auto v{ (static_cast<float>(j) + device::randNum(&localRandState)) / static_cast<float>(height) };
-
-        const auto r{ (*camera)->getRay(u, v, &localRandState) };
-        c += color(r, world, &localRandState);
-    }
-
-    randState[pixelIndex] = localRandState;
-
-    // NOTE: Simplified color correction
-    c /= static_cast<float>(sampleCount);
-    c[0] = std::sqrt(c[0]);
-    c[1] = std::sqrt(c[1]);
-    c[2] = std::sqrt(c[2]);
-
-    pFramebuffer[pixelIndex] = c;
-}
-
-/// \brief Kernel to prepare the rendering state on the GPU.
-///
-/// \param width The width of the framebuffer
-/// \param height The height of the framebuffer
-/// \param randState The \ref curandState to access the thread local random state
-///
-/// \note CUDA Kernel
-__global__ void renderInit(int width, int height, curandStatePhilox4_32_10_t* randState)
-{
-    const auto i{ threadIdx.x + (blockIdx.x * blockDim.x) };
-    const auto j{ threadIdx.y + (blockIdx.y * blockDim.y) };
-
-    if(i >= width || j >= height)
-        return;
-
-    const auto pixelIndex{ calculatePixelIndex(i, j, width) };
-
-    curand_init(0xC0FFEE, pixelIndex, 0, &randState[pixelIndex]);
-}
-
-__global__ void worldRandInit(curandState* randState)
-{
-    if(threadIdx.x == 0 && blockIdx.x == 0)
-        curand_init(0xC0FFEE, 0, 0, randState);
-}
-
-/// \brief Kernel to create the objects that are in the world on the GPU.
-///
-/// \param list The objects that are in the world
-/// \param world The container that contains the objects in \p list
-/// \param camera The \ref Camera that observes the scene
-/// \param width The width of the framebuffer
-/// \param height The height of the framebuffer
-/// \param randState The \ref curandState to access the thread local random state
-///
-/// \note CUDA Kernel
-__global__ void createWorld(
-    IHitable** list, IHitable** world, Camera** camera, int width, int height, curandState* randState
-)
-{
-    if(!(threadIdx.x == 0 && blockIdx.x == 0))
-        return;
-
-    auto localRandState{ *randState };
-
-    list[0] = new Sphere{
-        Vec3{ 0.f, -1000.f, -1.f },
-        1000.f, new Lambertian{ Vec3{ 0.5f } }
-    };
-
-    int i{ 1 };
-    for(int a{ -11 }; a < 11; ++a)
-    {
-        for(int b{ -11 }; b < 11; ++b)
-        {
-            const float chooseMat{ device::randNum(&localRandState) };
-            const Vec3 center{ a + device::randNum(&localRandState), 0.2f, b + device::randNum(&localRandState) };
-
-            if(chooseMat < 0.8f)
-            {
-                list[i++] = new Sphere{
-                    center,
-                    0.2f,
-                    new Lambertian{ Vec3{
-                        randNumProduct(&localRandState),
-                        randNumProduct(&localRandState),
-                        randNumProduct(&localRandState),
-                    } },
-                };
-            }
-            else if(chooseMat < 0.95f)
-            {
-                const auto metalColorFn{ [&localRandState] {
-                    return 0.5f * (1.f + device::randNum(&localRandState));
-                } };
-
-                list[i++] = new Sphere{
-                    center,
-                    0.2f,
-                    new Metal{ Vec3{ metalColorFn(), metalColorFn(), metalColorFn() },
-                              0.5f * device::randNum(&localRandState) }
-                };
-            }
-            else
-                list[i++] = new Sphere{ center, 0.2f, new Dielectric{ 1.5f } };
-        }
-    }
-
-    list[i++] = new Sphere{
-        Vec3{ 0.f, 1.f, 0.f },
-        1.f, new Dielectric{ 1.5f }
-    };
-    list[i++] = new Sphere{
-        Vec3{ -4.f, 1.f, 0.f },
-        1.f, new Lambertian{ Vec3{ 0.4f, 0.2f, 0.1f } }
-    };
-    list[i++] = new Sphere{
-        Vec3{ 4.f, 1.f, 0.f },
-        1.f, new Metal{ Vec3{ 0.7f, 0.6f, 0.5f }, 0.f }
-    };
-
-    *randState = localRandState;
-
-    *world = new HitableList(list, ::OBJECTS_IN_SCENE);
-
-    Vec3 lookFrom{ 13.f, 2.f, 3.f };
-    Vec3 lookAt{ 0.f, 0.f, 0.f };
-    float distanceToFocus{ 10.f };
-    float aperture{ 0.1f };
-    *camera = new Camera(
-        lookFrom,
-        lookAt,
-        Vec3(0.f, 1.f, 0.f),
-        30.f,
-        (static_cast<float>(width) / static_cast<float>(height)),
-        aperture,
-        distanceToFocus
-    );
-}
-
-/// \brief Kernel to destroy the objects that are in the world on the GPU.
-///
-/// \param list The objects that are in the world
-/// \param world The container that contains the objects in \p list
-/// \param camera The \ref Camera that observes the scene
-///
-/// \note CUDA Kernel
-__global__ void freeWorld(IHitable** list, IHitable** world, Camera** camera)
-{
-    for(int i{ 0 }; i < ::OBJECTS_IN_SCENE; ++i)
-    {
-        delete static_cast<Sphere*>(list[i])->pMaterial;
-        delete list[i];
-    }
-    delete *world;
-    delete *camera;
-}
-
-// NOLINTEND
-
 int main()
 {
     Vec3* d_framebuffer{ nullptr };
@@ -340,14 +98,14 @@ int main()
     curandStatePhilox4_32_10_t* d_randState{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_randState, ::NUM_PIXELS * sizeof(curandStatePhilox4_32_10_t)));
 
-    renderInit<<<::BLOCKS, ::THREADS>>>(::NX, ::NY, d_randState);
+    tracer::renderInit<<<::BLOCKS, ::THREADS>>>(::NX, ::NY, d_randState);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
     curandState* d_randStateWorld{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_randStateWorld, sizeof(curandState)));
 
-    worldRandInit<<<1, 1>>>(d_randStateWorld);
+    tracer::worldRandInit<<<1, 1>>>(d_randStateWorld);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
@@ -357,7 +115,7 @@ int main()
     CHECK_CUDA_ERROR(cudaMalloc(&d_world, sizeof(IHitable*)));
     Camera** d_camera{ nullptr };
     CHECK_CUDA_ERROR(cudaMalloc(&d_camera, sizeof(Camera*)));
-    createWorld<<<1, 1>>>(d_list, d_world, d_camera, ::NX, ::NY, d_randStateWorld);
+    tracer::createWorld<<<1, 1>>>(d_list, d_world, d_camera, ::NX, ::NY, d_randStateWorld);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
@@ -369,7 +127,9 @@ int main()
         cudaEventCreate(&stop);
 
         cudaEventRecord(start);
-        render<<<::BLOCKS, ::THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
+        tracer::render<<<::BLOCKS, ::THREADS>>>(
+            d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState
+        );
         CHECK_CUDA_ERROR(cudaGetLastError());
         CHECK_CUDA_ERROR(cudaDeviceSynchronize());
         cudaEventRecord(stop);
@@ -382,7 +142,9 @@ int main()
     }
     else
     {
-        render<<<BLOCKS, THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
+        tracer::render<<<::BLOCKS, ::THREADS>>>(
+            d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState
+        );
         CHECK_CUDA_ERROR(cudaGetLastError());
         CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
@@ -391,7 +153,7 @@ int main()
         ::exportImage({ framebuffer.data(), ::NUM_PIXELS });
     }
 
-    freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
+    tracer::freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaFree(static_cast<void*>(d_camera)));
     CHECK_CUDA_ERROR(cudaFree(static_cast<void*>(d_world)));
