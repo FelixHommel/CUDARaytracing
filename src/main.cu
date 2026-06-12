@@ -322,10 +322,8 @@ __global__ void createWorld(
 
     Vec3 lookFrom{ 13.f, 2.f, 3.f };
     Vec3 lookAt{ 0.f, 0.f, 0.f };
-    float distanceToFocus{ (lookFrom - lookAt).length() };
-    float aperture{ 2.f };
-    printf("distanceToFocus = %f\n", distanceToFocus);
-    printf("aperture = %f\n", aperture);
+    float distanceToFocus{ 10.f };
+    float aperture{ 0.1f };
     *camera = new Camera(
         lookFrom,
         lookAt,
