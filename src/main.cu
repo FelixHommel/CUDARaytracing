@@ -59,7 +59,7 @@ constexpr auto COLOR_MAX{ 255.99 };
 /// \param func Name of the function that was called
 /// \param file Name of the file where the call was made
 /// \param line Linenumber in which the call was made
-void check_cuda(cudaError_t result, char const* func, char const* file, int line)
+void checkCuda(cudaError_t result, char const* func, char const* file, int line)
 {
     if(result != cudaSuccess)
     {
