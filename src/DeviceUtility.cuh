@@ -18,6 +18,16 @@ __device__ inline float randNum(curandStatePhilox4_32_10_t* randState)
     return curand_uniform(randState);
 }
 
+/// \brief Generate a random number.
+///
+/// \param randState The \ref curandState to access the thread local random state
+///
+/// \returns the generated random number
+__device__ inline float randNum(curandState* randState)
+{
+    return curand_uniform(randState);
+}
+
 /// \brief Generate a \ref Vec3 with random values
 ///
 /// \param randState The \ref curandState to access the thread local random state
