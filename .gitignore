@@ -1,6 +1,7 @@
 build/
 .clangd
 *.ppm
+docs/doxygen
 
 # Created by https://www.toptal.com/developers/gitignore/api/c,c++,vim,clion,cmake,linux,macos,vcpkg,windows,visualstudiocode,cuda
 # Edit at https://www.toptal.com/developers/gitignore?templates=c,c++,vim,clion,cmake,linux,macos,vcpkg,windows,visualstudiocode,cuda
