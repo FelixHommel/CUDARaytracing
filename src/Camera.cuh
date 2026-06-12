@@ -64,9 +64,9 @@ private:
     Vec3 m_lowerLeftCorner;
     Vec3 m_horizontal;
     Vec3 m_vertical;
+    Vec3 m_w;
     Vec3 m_u;
     Vec3 m_v;
-    Vec3 m_w;
     float m_lensRadius;
 };
 
