@@ -65,7 +65,7 @@ void checkCuda(cudaError_t result, char const* func, char const* file, int line)
 
 /// \brief Export framebuffer as PPM image.
 ///
-/// \param framebuffer span of floats that represent the color values
+/// \param framebuffer \ref std::span of floats that represent the color values
 void exportImage(std::span<const Vec3> framebuffer)
 {
     fmt::println("P3\n{} {}\n255", ::NX, ::NY);
