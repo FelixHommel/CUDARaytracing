@@ -15,8 +15,6 @@
 #include <span>
 #include <vector>
 
-#define CHECK_CUDA_ERROR(val) ::check_cuda((val), #val, __FILE__, __LINE__)
-
 namespace
 {
 
@@ -52,6 +50,8 @@ constexpr auto SAMPLE_COUNT{ 100u };
 constexpr auto OBJECTS_IN_SCENE{ (22u * 22u) + 1u + 3u };
 
 constexpr auto COLOR_MAX{ 255.99 };
+
+#define CHECK_CUDA_ERROR(val) ::checkCuda((val), #val, __FILE__, __LINE__)
 
 /// \brief Check if a CUDA call produced an error.
 ///
