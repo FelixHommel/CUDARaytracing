@@ -13,7 +13,6 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_ARCHITECTURES native)
 
 option(CRT_BENCHMARK "Build for performance measuring" OFF)
-add_compile_definitions(CRT_BENCHMARK=$<BOOL:${CRT_BENCHMARK}>)
 
 add_executable(${PROJECT_NAME} ./src/main.cu)
 target_sources(
@@ -36,3 +35,7 @@ target_sources(
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20 cuda_std_20)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
+
+if(CRT_BENCHMARK)
+    add_subdirectory(benchmark)
+endif()

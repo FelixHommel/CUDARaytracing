@@ -2,16 +2,11 @@
 #include "src/Error.cuh"
 #include "src/IHitable.cuh"
 #include "src/RayTracer.cuh"
-#include "src/Utility.cuh"
 #include "src/Vec3.cuh"
 
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
 #include <fmt/base.h>
-
-#include <cstdlib>
-#include <span>
-#include <vector>
 
 namespace
 {
@@ -29,29 +24,6 @@ constexpr dim3 THREADS{ ::TX, ::TY };                          ///< The layout o
 constexpr auto SAMPLE_COUNT{ 100u };
 
 constexpr auto COLOR_MAX{ 255.99 };
-
-/// \brief Export framebuffer as PPM image.
-///
-/// \param framebuffer \ref std::span of floats that represent the color values
-void exportImage(std::span<const Vec3> framebuffer)
-{
-    fmt::println("P3\n{} {}\n255", ::NX, ::NY);
-
-    for(int j{ ::NY - 1 }; j >= 0; j--)
-    {
-        for(int i{ 0 }; i < ::NX; i++)
-        {
-            const std::size_t pixelIndex{ shared::calculatePixelIndex(i, j, ::NX) };
-
-            fmt::println(
-                "{} {} {}",
-                static_cast<int>(::COLOR_MAX * framebuffer[pixelIndex].x()),
-                static_cast<int>(::COLOR_MAX * framebuffer[pixelIndex].y()),
-                static_cast<int>(::COLOR_MAX * framebuffer[pixelIndex].z())
-            );
-        }
-    }
-}
 
 } // namespace
 
@@ -85,13 +57,22 @@ int main()
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
+    cudaEvent_t start{ nullptr };
+    cudaEventCreate(&start);
+    cudaEvent_t stop{ nullptr };
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
     tracer::render<<<::BLOCKS, ::THREADS>>>(d_framebuffer, ::NX, ::NY, ::SAMPLE_COUNT, d_camera, d_world, d_randState);
     CHECK_CUDA_ERROR(cudaGetLastError());
     CHECK_CUDA_ERROR(cudaDeviceSynchronize());
+    cudaEventRecord(stop);
 
-    std::vector<Vec3> framebuffer(::NUM_PIXELS);
-    CHECK_CUDA_ERROR(cudaMemcpy(framebuffer.data(), d_framebuffer, ::FRAMEBUFFER_SIZE, cudaMemcpyDeviceToHost));
-    ::exportImage({ framebuffer.data(), ::NUM_PIXELS });
+    cudaEventSynchronize(stop);
+    float ms{ 0.f };
+    cudaEventElapsedTime(&ms, start, stop);
+
+    fmt::println("Render time for a {}x{} image: {:.2f} ms", ::NX, ::NY, ms);
 
     tracer::freeWorld<<<1, 1>>>(d_list, d_world, d_camera);
     CHECK_CUDA_ERROR(cudaGetLastError());
